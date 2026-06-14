@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Family Heritage Tree</title>
+<style>
+/* ── Reset & Base ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FAF7F2;--card:#FFFFFF;--card-border:#E5DDD0;
+  --text:#3D2B1F;--text-muted:#8A7060;
+  --accent:#6B8F71;--accent-h:#527A58;
+  --gold:#C9A84C;--gold-light:#F0E4B8;
+  --danger:#C0392B;
+  --line-child:#8A7060;--line-spouse:#C9A84C;
+  --shadow:rgba(61,43,31,.10);--modal-bg:rgba(30,18,10,.60);
+  --radius:14px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+
+/* ── Top Bar ─────────────────────────────────────────────────── */
+#topbar{
+  position:fixed;top:0;left:0;right:0;z-index:100;height:56px;
+  background:var(--text);display:flex;align-items:center;
+  padding:0 20px;gap:10px;box-shadow:0 2px 12px var(--shadow);
+}
+#topbar h1{
+  font-family:Georgia,serif;font-size:1.15rem;font-weight:700;
+  color:var(--gold-light);letter-spacing:.04em;flex:1;white-space:nowrap;
+}
+.tb-btn{
+  background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+  color:#fff;border-radius:8px;padding:6px 12px;font-size:.76rem;
+  cursor:pointer;transition:background .15s;white-space:nowrap;flex-shrink:0;
+  position:relative;
+}
+.tb-btn:hover{background:rgba(255,255,255,.22)}
+.tb-btn.green{background:#6B8F71;border-color:#527A58}
+.tb-btn.green:hover{background:#527A58}
+.tb-btn.danger{background:rgba(192,57,43,.35);border-color:rgba(192,57,43,.5)}
+.tb-btn.danger:hover{background:rgba(192,57,43,.55)}
+/* Hidden file input inside import button */
+#btn-import{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+
+/* ── Zoom Controls ──────────────────────────────────────────── */
+#zoom-controls{
+  position:fixed;bottom:24px;right:24px;z-index:100;
+  display:flex;flex-direction:column;gap:6px;
+}
+.zoom-btn{
+  width:38px;height:38px;border-radius:50%;
+  background:var(--text);color:#fff;border:none;
+  font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px var(--shadow);transition:transform .1s;
+}
+.zoom-btn:hover{transform:scale(1.1)}
+
+/* ── Canvas ─────────────────────────────────────────────────── */
+#canvas-wrap{position:fixed;top:56px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#canvas-wrap.dragging{cursor:grabbing}
+#canvas{position:absolute;transform-origin:0 0}
+#svg-lines{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
+
+/* ── Person Card ────────────────────────────────────────────── */
+.person-node{position:absolute;width:170px}
+.person-card{
+  background:var(--card);border:1.5px solid var(--card-border);
+  border-radius:var(--radius);padding:14px 12px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  cursor:pointer;box-shadow:0 2px 10px var(--shadow);
+  transition:box-shadow .2s,border-color .2s;
+  position:relative;user-select:none;
+}
+.person-card:hover{box-shadow:0 6px 22px rgba(61,43,31,.18);border-color:var(--gold)}
+.person-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(107,143,113,.28)}
+.gen-badge{
+  position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  background:var(--gold);color:#3D2B1F;
+  font-size:.6rem;font-weight:700;letter-spacing:.08em;
+  padding:2px 8px;border-radius:20px;white-space:nowrap;
+}
+.photo-wrap{
+  width:70px;height:70px;border-radius:50%;
+  border:3px solid var(--card-border);overflow:hidden;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:border-color .2s;
+}
+.person-card:hover .photo-wrap{border-color:var(--gold)}
+.photo-wrap img{width:100%;height:100%;object-fit:cover}
+.photo-placeholder{font-size:2rem;color:var(--card-border)}
+.card-name{font-family:Georgia,serif;font-size:.82rem;font-weight:700;color:var(--text);text-align:center;line-height:1.25}
+.card-dates{font-size:.68rem;color:var(--text-muted);text-align:center}
+.card-actions{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;justify-content:center}
+.card-btn{font-size:.65rem;border:none;border-radius:20px;padding:3px 9px;cursor:pointer;font-weight:600;transition:background .15s,transform .1s}
+.card-btn:hover{transform:scale(1.06)}
+.btn-add-child{background:var(--accent);color:#fff}
+.btn-add-child:hover{background:var(--accent-h)}
+.btn-add-spouse{background:var(--gold);color:var(--text)}
+.btn-add-spouse:hover{background:#b8942e}
+.btn-collapse{
+  background:var(--card-border);color:var(--text-muted);
+  position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);
+  border:1.5px solid var(--card-border);border-radius:20px;
+  padding:1px 10px;font-size:.65rem;cursor:pointer;z-index:5;
+  transition:background .15s;white-space:nowrap;
+}
+.btn-collapse:hover{background:var(--gold-light)}
+
+/* ── Detail Panel ───────────────────────────────────────────── */
+#detail-panel{
+  position:fixed;top:56px;right:0;bottom:0;width:340px;
+  background:var(--card);border-left:1.5px solid var(--card-border);
+  box-shadow:-6px 0 24px var(--shadow);
+  z-index:90;transform:translateX(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#detail-panel.open{transform:translateX(0)}
+.dp-header{
+  padding:20px 20px 16px;display:flex;align-items:flex-start;gap:12px;
+  border-bottom:1px solid var(--card-border);
+}
+.dp-photo{
+  width:72px;height:72px;border-radius:50%;
+  border:3px solid var(--card-border);overflow:hidden;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);font-size:2rem;color:var(--card-border);
+  position:relative;cursor:pointer;
+}
+.dp-photo img{width:100%;height:100%;object-fit:cover}
+.dp-photo-badge{
+  position:absolute;bottom:0;right:0;
+  background:var(--gold);border-radius:50%;
+  width:22px;height:22px;font-size:.75rem;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+#dp-photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.dp-name-block{flex:1;min-width:0}
+.dp-name{font-family:Georgia,serif;font-size:1.1rem;font-weight:700;line-height:1.2;color:var(--text);word-break:break-word}
+.dp-dates{font-size:.75rem;color:var(--text-muted);margin-top:2px}
+.dp-gen{font-size:.68rem;color:var(--accent);font-weight:600;margin-top:4px}
+#dp-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);transition:color .15s;z-index:2}
+#dp-close:hover{color:var(--text)}
+.dp-body{flex:1;overflow-y:auto;padding:16px 20px}
+.dp-section{margin-bottom:16px}
+.dp-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
+.dp-value{font-size:.85rem;color:var(--text);line-height:1.5}
+.dp-divider{border:none;border-top:1px solid var(--card-border);margin:12px 0}
+.dp-actions{display:flex;flex-direction:column;gap:8px;padding:0 20px 20px}
+.dp-action-btn{border:none;border-radius:10px;padding:10px;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s}
+.dp-action-btn.primary{background:var(--accent);color:#fff}
+.dp-action-btn.primary:hover{background:var(--accent-h)}
+.dp-action-btn.secondary{background:var(--gold-light);color:var(--text)}
+.dp-action-btn.secondary:hover{background:var(--gold)}
+.dp-action-btn.del{background:#fde8e6;color:var(--danger)}
+.dp-action-btn.del:hover{background:#f5c6c4}
+
+/* ── Add/Edit Person Modal ──────────────────────────────────── */
+#modal-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:var(--modal-bg);
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);padding:20px;
+}
+#modal-overlay.open{display:flex}
+.modal{
+  background:var(--card);border-radius:18px;
+  padding:26px 26px 20px;width:440px;max-width:100%;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+  position:relative;animation:popIn .2s ease;
+  max-height:90vh;overflow-y:auto;
+}
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal h2{font-family:Georgia,serif;font-size:1.1rem;margin-bottom:16px;color:var(--text)}
+#modal-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted)}
+
+/* Photo upload row inside person modal */
+.mphr{
+  display:flex;align-items:center;gap:14px;margin-bottom:16px;
+  padding:12px 14px;background:var(--bg);
+  border:1.5px dashed var(--card-border);border-radius:12px;
+}
+.mphr-preview{
+  width:62px;height:62px;border-radius:50%;border:2.5px solid var(--card-border);
+  overflow:hidden;background:#fff;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--card-border);
+}
+.mphr-preview img{width:100%;height:100%;object-fit:cover;display:none}
+.mphr-info{flex:1;min-width:0}
+.mphr-info strong{font-size:.78rem;color:var(--text);display:block;margin-bottom:5px}
+.mphr-pick{
+  display:inline-block;position:relative;cursor:pointer;
+  background:var(--accent);color:#fff;border-radius:8px;
+  padding:5px 12px;font-size:.74rem;font-weight:600;overflow:hidden;
+}
+.mphr-pick input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.mphr-hint{font-size:.67rem;color:var(--text-muted);display:block;margin-top:4px}
+.mphr-clear{font-size:.7rem;color:var(--danger);cursor:pointer;background:none;border:none;margin-top:3px;display:none;padding:0}
+
+.form-row{margin-bottom:13px}
+.form-row label{display:block;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:5px}
+.form-row label .req{color:var(--accent)}
+.form-row input,.form-row textarea{
+  width:100%;border:1.5px solid var(--card-border);border-radius:9px;
+  padding:8px 11px;font-size:.88rem;color:var(--text);
+  background:var(--bg);transition:border-color .15s;font-family:inherit;
+}
+.form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--accent)}
+.form-row textarea{min-height:68px;resize:vertical}
+.form-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.modal-btn{border:none;border-radius:10px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .15s}
+.modal-btn.save{background:var(--accent);color:#fff}
+.modal-btn.save:hover{background:var(--accent-h)}
+.modal-btn.cancel{background:var(--card-border);color:var(--text)}
+.modal-btn.cancel:hover{background:#d5ccc0}
+
+/* ── Crop Modal ─────────────────────────────────────────────── */
+#crop-overlay{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.82);
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(6px);padding:20px;
+}
+#crop-overlay.open{display:flex}
+.crop-modal{
+  background:var(--card);border-radius:18px;padding:24px;
+  width:400px;max-width:100%;
+  box-shadow:0 24px 60px rgba(0,0,0,.5);
+  animation:popIn .2s ease;
+}
+.crop-modal h2{font-family:Georgia,serif;font-size:1.05rem;margin-bottom:14px;color:var(--text)}
+.crop-stage{
+  width:100%;padding-bottom:100%;position:relative;
+  background:#1a1a1a;border-radius:12px;overflow:hidden;cursor:move;
+  touch-action:none;
+}
+.crop-stage canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+/* Circle overlay */
+.crop-circle-mask{
+  position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle 46% at 50% 50%, transparent 46%, rgba(0,0,0,.55) 46.5%);
+  border-radius:12px;
+}
+.crop-controls{margin-top:14px}
+.crop-controls label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);display:block;margin-bottom:6px}
+#crop-zoom-slider{width:100%;accent-color:var(--accent);cursor:pointer}
+.crop-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+
+/* ── Toast ──────────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--text);color:#fff;padding:10px 22px;border-radius:30px;
+  font-size:.83rem;z-index:400;
+  transition:transform .3s ease,opacity .3s ease;pointer-events:none;opacity:0;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── Legend ─────────────────────────────────────────────────── */
+#legend{
+  position:fixed;bottom:24px;left:24px;z-index:100;
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:10px;padding:10px 14px;
+  font-size:.72rem;color:var(--text-muted);
+  box-shadow:0 2px 10px var(--shadow);
+}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.legend-item:last-child{margin-bottom:0}
+.legend-line{width:32px;height:2px}
+.legend-line.child{background:var(--line-child)}
+.legend-line.spouse{background:transparent;border-top:2px dashed var(--line-spouse);height:0}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:4px}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header id="topbar">
+  <h1>🌳 Family Heritage Tree</h1>
+  <button class="tb-btn green" id="btn-add-root">+ Root Person</button>
+  <button class="tb-btn" id="btn-center">⌖ Centre</button>
+  <button class="tb-btn" id="btn-export">⬇ Export JSON</button>
+  <button class="tb-btn" id="btn-import-wrap" style="position:relative">
+    ⬆ Import JSON
+    <input type="file" id="btn-import" accept=".json" />
+  </button>
+  <button class="tb-btn danger" id="btn-reset">↺ Reset</button>
+</header>
+
+<!-- Canvas -->
+<div id="canvas-wrap">
+  <div id="canvas">
+    <svg id="svg-lines"></svg>
+  </div>
+</div>
+
+<!-- Zoom -->
+<div id="zoom-controls">
+  <button class="zoom-btn" id="btn-zoom-in">+</button>
+  <button class="zoom-btn" id="btn-zoom-out">−</button>
+  <button class="zoom-btn" id="btn-zoom-fit" style="font-size:.72rem">Fit</button>
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <div class="legend-item"><div class="legend-line child"></div> Parent → Child</div>
+  <div class="legend-item"><div class="legend-line spouse"></div> Spouse</div>
+</div>
+
+<!-- Detail Panel -->
+<div id="detail-panel">
+  <button id="dp-close">✕</button>
+  <div class="dp-header">
+    <div class="dp-photo" id="dp-photo-wrap" title="Click to change photo">
+      <input type="file" id="dp-photo-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+      <span id="dp-photo-ph">👤</span>
+      <img id="dp-photo-img" src="" alt="" style="display:none" />
+      <div class="dp-photo-badge">📷</div>
+    </div>
+    <div class="dp-name-block">
+      <div class="dp-name" id="dp-name">—</div>
+      <div class="dp-dates" id="dp-dates">—</div>
+      <div class="dp-gen" id="dp-gen"></div>
+    </div>
+  </div>
+  <div class="dp-body">
+    <div class="dp-section"><div class="dp-label">Place of Birth</div><div class="dp-value" id="dp-birthplace">—</div></div>
+    <div class="dp-section"><div class="dp-label">Place of Death</div><div class="dp-value" id="dp-deathplace">—</div></div>
+    <hr class="dp-divider">
+    <div class="dp-section"><div class="dp-label">Occupation</div><div class="dp-value" id="dp-occupation">—</div></div>
+    <div class="dp-section"><div class="dp-label">Nationality</div><div class="dp-value" id="dp-nationality">—</div></div>
+    <hr class="dp-divider">
+    <div class="dp-section"><div class="dp-label">Biography</div><div class="dp-value" id="dp-bio">—</div></div>
+    <div class="dp-section"><div class="dp-label">Notes</div><div class="dp-value" id="dp-notes">—</div></div>
+  </div>
+  <div class="dp-actions">
+    <button class="dp-action-btn primary" id="dp-edit-btn">✏ Edit Details</button>
+    <button class="dp-action-btn secondary" id="dp-add-child-btn">+ Add Child</button>
+    <button class="dp-action-btn secondary" id="dp-add-spouse-btn">♥ Add Spouse</button>
+    <button class="dp-action-btn del" id="dp-delete-btn">✕ Remove Person</button>
+  </div>
+</div>
+
+<!-- Add/Edit Person Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <button id="modal-close">✕</button>
+    <h2 id="modal-title">Add Person</h2>
+
+    <!-- Photo picker row -->
+    <div class="mphr">
+      <div class="mphr-preview" id="mphr-preview">
+        <span id="mphr-icon">👤</span>
+        <img id="mphr-img" alt="preview" />
+      </div>
+      <div class="mphr-info">
+        <strong>Profile Photo <span style="font-weight:400;color:var(--text-muted)">(optional)</span></strong>
+        <label class="mphr-pick">
+          📁 Choose Photo
+          <input type="file" id="f-photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+        </label>
+        <button class="mphr-clear" id="mphr-clear">✕ Remove photo</button>
+        <span class="mphr-hint" id="mphr-hint">JPG, JPEG or PNG · max 5 MB</span>
+      </div>
+    </div>
+
+    <div class="form-two">
+      <div class="form-row">
+        <label>First Name <span class="req">*</span></label>
+        <input id="f-firstname" placeholder="e.g. James" />
+      </div>
+      <div class="form-row">
+        <label>Last Name</label>
+        <input id="f-lastname" placeholder="e.g. Anderson" />
+      </div>
+    </div>
+    <div class="form-two">
+      <div class="form-row">
+        <label>Birth Year</label>
+        <input id="f-birth" placeholder="e.g. 1895" type="number" min="1000" max="2100" />
+      </div>
+      <div class="form-row">
+        <label>Death Year</label>
+        <input id="f-death" placeholder="blank if living" type="number" min="1000" max="2100" />
+      </div>
+    </div>
+    <div class="form-two">
+      <div class="form-row">
+        <label>Place of Birth</label>
+        <input id="f-birthplace" placeholder="e.g. Dublin, Ireland" />
+      </div>
+      <div class="form-row">
+        <label>Place of Death</label>
+        <input id="f-deathplace" placeholder="e.g. London, UK" />
+      </div>
+    </div>
+    <div class="form-two">
+      <div class="form-row">
+        <label>Occupation</label>
+        <input id="f-occupation" placeholder="e.g. Farmer" />
+      </div>
+      <div class="form-row">
+        <label>Nationality</label>
+        <input id="f-nationality" placeholder="e.g. Irish" />
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Biography</label>
+      <textarea id="f-bio" placeholder="A brief life story..."></textarea>
+    </div>
+    <div class="form-row">
+      <label>Notes</label>
+      <input id="f-notes" placeholder="Any extra notes..." />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
+      <button class="modal-btn save" id="modal-save">Save Person</button>
+    </div>
+  </div>
+</div>
+
+<!-- Crop Modal -->
+<div id="crop-overlay">
+  <div class="crop-modal">
+    <h2>✂ Crop & Adjust Photo</h2>
+    <div class="crop-stage" id="crop-stage">
+      <canvas id="crop-canvas"></canvas>
+      <div class="crop-circle-mask"></div>
+    </div>
+    <div class="crop-controls">
+      <label>Zoom</label>
+      <input type="range" id="crop-zoom-slider" min="100" max="300" value="100" step="1" />
+    </div>
+    <p style="font-size:.72rem;color:var(--text-muted);margin-top:8px;text-align:center">
+      Drag the image to reposition · Scroll or use slider to zoom
+    </p>
+    <div class="crop-actions">
+      <button class="modal-btn cancel" id="crop-cancel">Cancel</button>
+      <button class="modal-btn save" id="crop-confirm">✓ Use This Photo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS & STORAGE KEY
+═══════════════════════════════════════════════════════════════ */
+const STORAGE_KEY = 'familyTreeData_v5';
+const CARD_W = 170, CARD_H = 222, COL_GAP = 58, ROW_GAP = 112, SPOUSE_GAP = 26;
+
+/* ═══════════════════════════════════════════════════════════════
+   DEFAULT SEED DATA  (Great-Grandfather + Wife + 7 children)
+═══════════════════════════════════════════════════════════════ */
+const DEFAULT_DATA = {
+  roots: ['p1','p2'],
+  people: {
+    'p1':{id:'p1',firstName:'William',lastName:'Harrison',birth:1878,death:1955,
+      birthplace:'County Mayo, Ireland',deathplace:'Chicago, USA',
+      occupation:'Railroad Worker & Foreman',nationality:'Irish-American',
+      bio:'William emigrated from Ireland in 1899, arriving at Ellis Island with little more than the clothes on his back. He found work on the expanding railroad network and rose to become a respected foreman. Known for his booming laugh and fierce loyalty to family.',
+      notes:'Family patriarch. Emigrated 1899. Known as "Big Bill".',
+      photo:null,generation:0,spouses:['p2'],children:['p3','p4','p5','p6','p7','p8','p9']},
+    'p2':{id:'p2',firstName:'Rose',lastName:'Callahan',birth:1882,death:1962,
+      birthplace:'County Galway, Ireland',deathplace:'Chicago, USA',
+      occupation:'Homemaker & Midwife',nationality:'Irish-American',
+      bio:'Rose came to America in 1902 and met William at a church social in Chicago. She was the heart of the family, raising seven children while also assisting as an informal midwife to the neighbourhood. Her soda bread recipe is still made by the family today.',
+      notes:'Married William Harrison in 1903. Beloved grandmother to 19 grandchildren.',
+      photo:null,generation:0,spouses:['p1'],children:['p3','p4','p5','p6','p7','p8','p9']},
+    'p3':{id:'p3',firstName:'Patrick',lastName:'Harrison',birth:1904,death:1968,
+      birthplace:'Chicago, USA',deathplace:'Chicago, USA',
+      occupation:'Police Officer',nationality:'American',
+      bio:'Patrick, the eldest child, followed a path of public service, joining the Chicago Police Department in 1926. He served for 30 years and was known as an honest and fair officer in a tough era.',
+      notes:'Eldest child. 30-year veteran of the CPD. Medal of Commendation 1944.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p4':{id:'p4',firstName:'Mary',lastName:'Harrison',birth:1906,death:1998,
+      birthplace:'Chicago, USA',deathplace:'Boston, USA',
+      occupation:'Schoolteacher',nationality:'American',
+      bio:'Mary had a gift for learning and became one of the first women in her family to graduate from college. She taught primary school for 40 years in Boston after marrying and moving there in 1930.',
+      notes:'Taught at St. Brendan\'s Elementary 1930–1970. Loved poetry.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p5':{id:'p5',firstName:'Thomas',lastName:'Harrison',birth:1908,death:1944,
+      birthplace:'Chicago, USA',deathplace:'Normandy, France',
+      occupation:'US Army Sergeant',nationality:'American',
+      bio:'Thomas served with distinction in World War II. He was killed in action during the Normandy landings on 6 June 1944. He is remembered as a hero and is buried at the Normandy American Cemetery.',
+      notes:'Killed in action D-Day, June 6 1944. Posthumously awarded the Bronze Star.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p6':{id:'p6',firstName:'Catherine',lastName:'Harrison',birth:1910,death:2005,
+      birthplace:'Chicago, USA',deathplace:'Miami, USA',
+      occupation:'Nurse',nationality:'American',
+      bio:'Catherine trained as a nurse during the Great Depression when few women worked outside the home. She served as a military nurse in the Pacific theatre during WWII and later established a nursing school in Miami.',
+      notes:'Military nurse 1942–1946. Founded the Coral Gables Nursing Institute.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p7':{id:'p7',firstName:'James',lastName:'Harrison',birth:1913,death:1989,
+      birthplace:'Chicago, USA',deathplace:'Detroit, USA',
+      occupation:'Auto Engineer',nationality:'American',
+      bio:'James was mechanically gifted from boyhood and found his calling in Detroit\'s booming auto industry. He worked as an engineer for Ford for over 30 years, contributing to the design of several iconic post-war models.',
+      notes:'Held 3 patents in automotive engineering. Worked at Ford 1935–1967.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p8':{id:'p8',firstName:'Brigid',lastName:'Harrison',birth:1916,death:null,
+      birthplace:'Chicago, USA',deathplace:null,
+      occupation:'Painter & Art Restorer',nationality:'American',
+      bio:'Brigid showed artistic talent from a young age. She studied fine art in Chicago and later in Paris, becoming a skilled oil painter and art restorer who worked with several major museums.',
+      notes:'Still living (110). Studied in Paris 1938. Exhibited at the Art Institute of Chicago.',
+      photo:null,generation:1,spouses:[],children:[]},
+    'p9':{id:'p9',firstName:'Joseph',lastName:'Harrison',birth:1920,death:1991,
+      birthplace:'Chicago, USA',deathplace:'Los Angeles, USA',
+      occupation:'Jazz Musician & Bandleader',nationality:'American',
+      bio:'Joseph, the youngest, inherited his father\'s loud laugh and his mother\'s warmth. He discovered jazz as a teenager and went on to lead his own big band in Los Angeles through the 1950s and 60s, recording four studio albums.',
+      notes:'Youngest child. Recorded 4 albums. Performed at the Hollywood Bowl 1959.',
+      photo:null,generation:1,spouses:[],children:[]}
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let state = {
+  people:{},roots:[],collapsed:{},nodePositions:{},
+  nextId:100,selectedId:null,modalMode:null,
+  panX:80,panY:80,zoom:1,
+};
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const s=JSON.parse(raw);
+      state.people=s.people||{};state.roots=s.roots||[];
+      state.nextId=s.nextId||100;state.collapsed=s.collapsed||{};
+    } else {
+      resetToDefault();
+    }
+  }catch(e){resetToDefault()}
+}
+function resetToDefault(){
+  state.people=JSON.parse(JSON.stringify(DEFAULT_DATA.people));
+  state.roots=[...DEFAULT_DATA.roots];
+  state.nextId=200;state.collapsed={};
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({
+      people:state.people,roots:state.roots,
+      nextId:state.nextId,collapsed:state.collapsed
+    }));
+  }catch(e){toast('Storage full — try exporting and clearing old data.');}
+}
+function genId(){return 'p'+(state.nextId++)}
+
+/* ═══════════════════════════════════════════════════════════════
+   TREE LAYOUT
+═══════════════════════════════════════════════════════════════ */
+
+/* Get unique children for a person, de-duped across spouses */
+function getChildren(person){
+  const seen=new Set();
+  const out=[];
+  (person.children||[]).forEach(id=>{
+    if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id)}
+  });
+  return out;
+}
+
+/* Compute pixel-width of a person's entire subtree */
+function getUnitWidth(personId,visited=new Set()){
+  if(visited.has(personId))return CARD_W;
+  visited.add(personId);
+  const p=state.people[personId];
+  if(!p)return CARD_W;
+
+  // Mark spouses visited immediately so they can't recurse back to us
+  const mySpouses=(p.spouses||[]).filter(s=>!visited.has(s));
+  mySpouses.forEach(s=>visited.add(s));
+  const selfW=CARD_W+mySpouses.length*(CARD_W+SPOUSE_GAP);
+
+  if(state.collapsed[personId])return selfW;
+
+  const children=getChildren(p);
+  if(!children.length)return selfW;
+
+  const childW=children.reduce((s,cid,i)=>{
+    return s+getUnitWidth(cid,new Set(visited))+(i?COL_GAP:0);
+  },0);
+  return Math.max(selfW,childW);
+}
+
+function layoutTree(personId,x,y,visited=new Set()){
+  if(visited.has(personId))return;
+  visited.add(personId);
+  const p=state.people[personId];
+  if(!p)return;
+
+  state.nodePositions[personId]={x,y};
+
+  // Place spouses to the right; mark them visited immediately so children
+  // can never loop back and re-enter either the primary person or their spouse.
+  let sx=x+CARD_W+SPOUSE_GAP;
+  let placedSpouseCount=0;
+  (p.spouses||[]).forEach(sid=>{
+    if(visited.has(sid))return;
+    visited.add(sid);
+    state.nodePositions[sid]={x:sx,y};
+    sx+=CARD_W+SPOUSE_GAP;
+    placedSpouseCount++;
+  });
+
+  if(state.collapsed[personId])return;
+
+  const children=getChildren(p);
+  if(!children.length)return;
+
+  const childWidths=children.map(cid=>getUnitWidth(cid,new Set(visited)));
+  const totalW=childWidths.reduce((s,w,i)=>s+w+(i?COL_GAP:0),0);
+
+  // Centre children under the couple unit (primary + placed spouses)
+  const coupleW=CARD_W+placedSpouseCount*(CARD_W+SPOUSE_GAP);
+  const midX=x+coupleW/2;
+  let cx=midX-totalW/2;
+  const cy=y+CARD_H+ROW_GAP;
+
+  children.forEach((cid,i)=>{
+    layoutTree(cid,cx,cy,visited);
+    cx+=childWidths[i]+COL_GAP;
+  });
+}
+
+function computeLayout(){
+  state.nodePositions={};
+
+  // Build primary roots list. For every couple both people are in state.roots and
+  // list each other as spouses — a symmetric "already excluded by each other" filter
+  // caused primary=[] (blank screen). Fix: iterate roots in order; the FIRST person
+  // seen becomes the primary anchor, their spouses are marked as covered and skipped.
+  const covered=new Set();
+  const primary=[];
+  state.roots.forEach(id=>{
+    if(!state.people[id]||covered.has(id))return;
+    primary.push(id);
+    (state.people[id].spouses||[]).forEach(sid=>covered.add(sid));
+  });
+
+  // Use one shared Set so no node is positioned twice across separate root families.
+  const globalPlaced=new Set();
+  let sx=80;
+  primary.forEach(rid=>{
+    const w=getUnitWidth(rid,new Set());
+    layoutTree(rid,sx,60,globalPlaced);
+    sx+=Math.max(w,CARD_W)+COL_GAP*2;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDERING
+═══════════════════════════════════════════════════════════════ */
+const canvas=document.getElementById('canvas');
+const svgEl=document.getElementById('svg-lines');
+
+function dateStr(p){
+  const b=p.birth||'?';
+  const d=p.death?p.death:(p.birth?'present':'?');
+  return `${b} – ${d}`;
+}
+function photoHTML(p,size=70){
+  if(p.photo)return`<img src="${p.photo}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
+  return`<span class="photo-placeholder" style="font-size:${size*.38}px">👤</span>`;
+}
+const GEN_LABELS=['Great-Grandparent','Grandparent','Parent','Yourself','Child','Grandchild','Great-Grandchild'];
+function genLabel(g){return GEN_LABELS[g]??`Generation ${g+1}`}
+
+function renderAll(){
+  computeLayout();
+  renderCards();
+  renderLines();
+}
+
+function renderCards(){
+  document.querySelectorAll('.person-node').forEach(el=>el.remove());
+  Object.entries(state.nodePositions).forEach(([id,pos])=>{
+    const p=state.people[id];
+    if(!p)return;
+    const node=document.createElement('div');
+    node.className='person-node';
+    node.id=`node-${id}`;
+    node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:${CARD_W}px`;
+    const sel=state.selectedId===id;
+    const hasKids=getChildren(p).length>0;
+    const col=state.collapsed[id];
+    const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
+    node.innerHTML=`
+      <div class="person-card${sel?' selected':''}" data-id="${id}">
+        ${p.generation===0?'<div class="gen-badge">Root Ancestor</div>':''}
+        <div class="photo-wrap">${photoHTML(p)}</div>
+        <div class="card-name">${nm}</div>
+        <div class="card-dates">${dateStr(p)}</div>
+        <div class="card-actions">
+          <button class="card-btn btn-add-child" data-action="add-child" data-id="${id}">+ Child</button>
+          <button class="card-btn btn-add-spouse" data-action="add-spouse" data-id="${id}">♥ Spouse</button>
+        </div>
+        ${hasKids?`<button class="btn-collapse" data-id="${id}">${col?'▼ Expand':'▲ Collapse'}</button>`:''}
+      </div>`;
+    canvas.appendChild(node);
+  });
+}
+
+function renderLines(){
+  svgEl.innerHTML='';
+  const pos=Object.values(state.nodePositions);
+  if(!pos.length)return;
+  const maxX=Math.max(...pos.map(p=>p.x))+CARD_W+200;
+  const maxY=Math.max(...pos.map(p=>p.y))+CARD_H+200;
+  svgEl.setAttribute('width',maxX);svgEl.setAttribute('height',maxY);
+
+  const doneSpouse=new Set(),doneChild=new Set();
+  Object.values(state.people).forEach(p=>{
+    const pp=state.nodePositions[p.id];if(!pp)return;
+    // Spouse lines
+    (p.spouses||[]).forEach(sid=>{
+      const key=[p.id,sid].sort().join('-');
+      if(doneSpouse.has(key))return;doneSpouse.add(key);
+      const sp=state.nodePositions[sid];if(!sp)return;
+      const x1=pp.x+CARD_W,y1=pp.y+CARD_H/2;
+      const x2=sp.x,y2=sp.y+CARD_H/2;
+      svgEl.appendChild(mkLine(x1,y1,x2,y2,'#C9A84C',true));
+    });
+    // Child lines
+    if(state.collapsed[p.id])return;
+    const kids=getChildren(p);if(!kids.length)return;
+    const spPos=(p.spouses||[]).map(s=>state.nodePositions[s]).filter(Boolean);
+    const allX=[pp.x,...spPos.map(s=>s.x)];
+    const midX=(Math.min(...allX)+Math.max(...allX)+CARD_W)/2;
+    const botY=pp.y+CARD_H;
+    kids.forEach(cid=>{
+      const key=`${p.id}->${cid}`;
+      if(doneChild.has(key))return;doneChild.add(key);
+      const cp=state.nodePositions[cid];if(!cp)return;
+      const cMid=cp.x+CARD_W/2,cTop=cp.y,halfY=botY+ROW_GAP/2;
+      const d=`M${midX} ${botY}L${midX} ${halfY}L${cMid} ${halfY}L${cMid} ${cTop}`;
+      svgEl.appendChild(mkPath(d,'#8A7060'));
+    });
+  });
+}
+
+function mkLine(x1,y1,x2,y2,color,dashed=false){
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);
+  l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  l.setAttribute('stroke',color);l.setAttribute('stroke-width','2');
+  if(dashed)l.setAttribute('stroke-dasharray','6 4');
+  return l;
+}
+function mkPath(d,color){
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d);p.setAttribute('stroke',color);
+  p.setAttribute('fill','none');p.setAttribute('stroke-width','2');
+  p.setAttribute('stroke-linecap','round');
+  return p;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════════════════════════════════ */
+const panel=document.getElementById('detail-panel');
+
+function openDetailPanel(id){
+  state.selectedId=id;
+  const p=state.people[id];if(!p)return;
+  const v=x=>x||'<em style="color:var(--card-border)">Not recorded</em>';
+  const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
+  document.getElementById('dp-name').textContent=nm;
+  document.getElementById('dp-dates').textContent=dateStr(p);
+  document.getElementById('dp-gen').textContent=genLabel(p.generation??0);
+  document.getElementById('dp-birthplace').innerHTML=v(p.birthplace);
+  document.getElementById('dp-deathplace').innerHTML=v(p.deathplace);
+  document.getElementById('dp-occupation').innerHTML=v(p.occupation);
+  document.getElementById('dp-nationality').innerHTML=v(p.nationality);
+  document.getElementById('dp-bio').innerHTML=v(p.bio);
+  document.getElementById('dp-notes').innerHTML=v(p.notes);
+  const img=document.getElementById('dp-photo-img');
+  const ph=document.getElementById('dp-photo-ph');
+  if(p.photo){img.src=p.photo;img.style.display='block';ph.style.display='none';}
+  else{img.style.display='none';ph.style.display='block';}
+  panel.classList.add('open');
+  renderAll();
+}
+function closeDetailPanel(){
+  panel.classList.remove('open');state.selectedId=null;renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CROP ENGINE
+═══════════════════════════════════════════════════════════════ */
+let cropState={img:null,scale:1,ox:0,oy:0,dragging:false,lx:0,ly:0,resolveCallback:null};
+const cropOverlay=document.getElementById('crop-overlay');
+const cropCanvas=document.getElementById('crop-canvas');
+const cropCtx=cropCanvas.getContext('2d');
+const cropStage=document.getElementById('crop-stage');
+const cropSlider=document.getElementById('crop-zoom-slider');
+
+function openCropModal(imageSrc){
+  return new Promise(resolve=>{
+    cropState.resolveCallback=resolve;
+    const img=new Image();
+    img.onload=()=>{
+      cropState.img=img;
+      // Size canvas to stage dimensions
+      const size=cropStage.clientWidth||320;
+      cropCanvas.width=size;cropCanvas.height=size;
+      // Initial scale: fit image to fill the circle
+      const minDim=Math.min(img.naturalWidth,img.naturalHeight);
+      cropState.scale=size/minDim;
+      // Centre
+      cropState.ox=(size-img.naturalWidth*cropState.scale)/2;
+      cropState.oy=(size-img.naturalHeight*cropState.scale)/2;
+      cropSlider.value=100;
+      drawCrop();
+      cropOverlay.classList.add('open');
+    };
+    img.src=imageSrc;
+  });
+}
+
+function drawCrop(){
+  const c=cropCanvas,ctx=cropCtx,img=cropState.img;
+  if(!img)return;
+  ctx.clearRect(0,0,c.width,c.height);
+  ctx.drawImage(img,cropState.ox,cropState.oy,
+    img.naturalWidth*cropState.scale,img.naturalHeight*cropState.scale);
+}
+
+function getCroppedDataURL(){
+  const size=cropCanvas.width;
+  const out=document.createElement('canvas');
+  out.width=200;out.height=200;
+  const ctx=out.getContext('2d');
+  ctx.beginPath();ctx.arc(100,100,100,0,Math.PI*2);ctx.clip();
+  // Scale from stage coords to output 200x200
+  const ratio=200/size;
+  ctx.drawImage(cropCanvas,0,0,size,size,0,0,200,200);
+  return out.toDataURL('image/jpeg',0.88);
+}
+
+// Slider zoom
+cropSlider.addEventListener('input',()=>{
+  const img=cropState.img;if(!img)return;
+  const size=cropCanvas.width;
+  const pct=parseInt(cropSlider.value)/100;
+  const minDim=Math.min(img.naturalWidth,img.naturalHeight);
+  const newScale=(size/minDim)*pct;
+  // Zoom around centre of stage
+  const cx=size/2,cy=size/2;
+  cropState.ox=cx-(cx-cropState.ox)*(newScale/cropState.scale);
+  cropState.oy=cy-(cy-cropState.oy)*(newScale/cropState.scale);
+  cropState.scale=newScale;
+  drawCrop();
+});
+
+// Drag
+cropStage.addEventListener('mousedown',e=>{
+  cropState.dragging=true;
+  cropState.lx=e.clientX;cropState.ly=e.clientY;
+  e.preventDefault();
+});
+window.addEventListener('mousemove',e=>{
+  if(!cropState.dragging)return;
+  cropState.ox+=e.clientX-cropState.lx;
+  cropState.oy+=e.clientY-cropState.ly;
+  cropState.lx=e.clientX;cropState.ly=e.clientY;
+  drawCrop();
+});
+window.addEventListener('mouseup',()=>{cropState.dragging=false});
+
+// Touch drag
+cropStage.addEventListener('touchstart',e=>{
+  const t=e.touches[0];
+  cropState.dragging=true;cropState.lx=t.clientX;cropState.ly=t.clientY;
+  e.preventDefault();
+},{passive:false});
+cropStage.addEventListener('touchmove',e=>{
+  if(!cropState.dragging)return;
+  const t=e.touches[0];
+  cropState.ox+=t.clientX-cropState.lx;
+  cropState.oy+=t.clientY-cropState.ly;
+  cropState.lx=t.clientX;cropState.ly=t.clientY;
+  drawCrop();e.preventDefault();
+},{passive:false});
+cropStage.addEventListener('touchend',()=>{cropState.dragging=false});
+
+// Scroll zoom on stage
+cropStage.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const delta=e.deltaY>0?0.95:1.05;
+  const img=cropState.img;if(!img)return;
+  const rect=cropStage.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  cropState.ox=mx-(mx-cropState.ox)*delta;
+  cropState.oy=my-(my-cropState.oy)*delta;
+  cropState.scale*=delta;
+  cropSlider.value=Math.round((cropState.scale/(cropCanvas.width/Math.min(img.naturalWidth,img.naturalHeight)))*100);
+  drawCrop();
+},{passive:false});
+
+document.getElementById('crop-confirm').addEventListener('click',()=>{
+  const dataURL=getCroppedDataURL();
+  cropOverlay.classList.remove('open');
+  if(cropState.resolveCallback)cropState.resolveCallback(dataURL);
+  cropState.resolveCallback=null;
+});
+document.getElementById('crop-cancel').addEventListener('click',()=>{
+  cropOverlay.classList.remove('open');
+  if(cropState.resolveCallback)cropState.resolveCallback(null);
+  cropState.resolveCallback=null;
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   MODAL — ADD / EDIT PERSON
+═══════════════════════════════════════════════════════════════ */
+const modalOverlay=document.getElementById('modal-overlay');
+let pendingPhoto=null;
+
+function setModalPhotoPreview(src){
+  pendingPhoto=src;
+  const img=document.getElementById('mphr-img');
+  const icon=document.getElementById('mphr-icon');
+  const clear=document.getElementById('mphr-clear');
+  const hint=document.getElementById('mphr-hint');
+  if(src){
+    img.src=src;img.style.display='block';icon.style.display='none';
+    clear.style.display='inline-block';hint.textContent='Photo ready ✓';
+  } else {
+    img.style.display='none';icon.style.display='block';
+    clear.style.display='none';hint.textContent='JPG, JPEG or PNG · max 5 MB';
+  }
+  document.getElementById('f-photo').value='';
+}
+
+function openModal(title,prefill={}){
+  document.getElementById('modal-title').textContent=title;
+  ['firstname','lastname','birth','death','birthplace','deathplace','occupation','nationality','bio','notes']
+    .forEach(k=>{const el=document.getElementById(`f-${k}`);if(el)el.value=prefill[k]??''});
+  setModalPhotoPreview(prefill.photo||null);
+  modalOverlay.classList.add('open');
+  setTimeout(()=>{document.getElementById('f-firstname').focus()},50);
+  const m=document.querySelector('.modal');if(m)m.scrollTop=0;
+}
+function closeModal(){modalOverlay.classList.remove('open');pendingPhoto=null;}
+
+// Photo file input inside modal
+document.getElementById('f-photo').addEventListener('change',async e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  if(!['image/jpeg','image/png'].includes(file.type)){
+    toast('Please choose a JPG, JPEG, or PNG file.');e.target.value='';return;
+  }
+  if(file.size>5*1024*1024){
+    toast('Image must be under 5 MB.');e.target.value='';return;
+  }
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const cropped=await openCropModal(ev.target.result);
+    if(cropped)setModalPhotoPreview(cropped);
+    else e.target.value='';
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('mphr-clear').addEventListener('click',()=>setModalPhotoPreview(null));
+
+function getFormData(){
+  return{
+    firstName: document.getElementById('f-firstname').value.trim(),
+    lastName:  document.getElementById('f-lastname').value.trim()||null,
+    birth:     parseInt(document.getElementById('f-birth').value)||null,
+    death:     parseInt(document.getElementById('f-death').value)||null,
+    birthplace:document.getElementById('f-birthplace').value.trim()||null,
+    deathplace:document.getElementById('f-deathplace').value.trim()||null,
+    occupation:document.getElementById('f-occupation').value.trim()||null,
+    nationality:document.getElementById('f-nationality').value.trim()||null,
+    bio:       document.getElementById('f-bio').value.trim()||null,
+    notes:     document.getElementById('f-notes').value.trim()||null,
+    photo:     pendingPhoto,
+  };
+}
+
+function handleModalSave(){
+  const data=getFormData();
+  if(!data.firstName){
+    toast('First name is required.');
+    document.getElementById('f-firstname').focus();return;
+  }
+  const mode=state.modalMode;if(!mode)return;
+
+  if(mode.type==='edit'){
+    const p=state.people[mode.targetId];
+    if(data.photo===null&&p.photo)data.photo=p.photo; // keep existing if none chosen
+    Object.assign(p,data);
+    saveState();renderAll();
+    if(state.selectedId===mode.targetId)openDetailPanel(mode.targetId);
+    toast('Person updated.');
+
+  } else if(mode.type==='root'){
+    const id=genId();
+    state.people[id]={id,...data,generation:0,spouses:[],children:[]};
+    state.roots.push(id);
+    saveState();renderAll();
+    toast(`${data.firstName} added as root ancestor.`);
+
+  } else if(mode.type==='child'){
+    const parent=state.people[mode.targetId];
+    const gen=(parent.generation??0)+1;
+    const id=genId();
+    state.people[id]={id,...data,generation:gen,spouses:[],children:[]};
+    if(!parent.children.includes(id))parent.children.push(id);
+    saveState();renderAll();
+    toast(`${data.firstName} added as child.`);
+
+  } else if(mode.type==='spouse'){
+    const person=state.people[mode.targetId];
+    const id=genId();
+    // BUG FIX: spouse gets empty children — shared children handled by getChildren() de-dup
+    state.people[id]={id,...data,generation:person.generation??0,spouses:[mode.targetId],children:[]};
+    if(!person.spouses.includes(id))person.spouses.push(id);
+    // Add spouse as a root only if the primary person is a root
+    if(state.roots.includes(mode.targetId)&&!state.roots.includes(id)){
+      state.roots.push(id);
+    }
+    saveState();renderAll();
+    toast(`${data.firstName} added as spouse.`);
+  }
+  closeModal();
+}
+
+document.getElementById('modal-close').addEventListener('click',closeModal);
+document.getElementById('modal-cancel').addEventListener('click',closeModal);
+document.getElementById('modal-save').addEventListener('click',handleModalSave);
+modalOverlay.addEventListener('click',e=>{if(e.target===modalOverlay)closeModal();});
+
+/* ═══════════════════════════════════════════════════════════════
+   DETAIL PANEL PHOTO UPLOAD (from panel)
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('dp-photo-input').addEventListener('change',async e=>{
+  if(!state.selectedId)return;
+  const file=e.target.files[0];if(!file)return;
+  if(!['image/jpeg','image/png'].includes(file.type)){
+    toast('Please choose a JPG, JPEG, or PNG file.');e.target.value='';return;
+  }
+  if(file.size>5*1024*1024){toast('Image must be under 5 MB.');e.target.value='';return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const cropped=await openCropModal(ev.target.result);
+    if(cropped){
+      state.people[state.selectedId].photo=cropped;
+      saveState();renderAll();openDetailPanel(state.selectedId);
+    }
+    e.target.value='';
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   DETAIL PANEL BUTTONS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('dp-close').addEventListener('click',closeDetailPanel);
+document.getElementById('dp-edit-btn').addEventListener('click',()=>{
+  if(!state.selectedId)return;
+  const p=state.people[state.selectedId];
+  state.modalMode={type:'edit',targetId:state.selectedId};
+  openModal(`Edit — ${p.firstName}${p.lastName?' '+p.lastName:''}`,{
+    firstname:p.firstName,lastname:p.lastName||'',
+    birth:p.birth,death:p.death,
+    birthplace:p.birthplace,deathplace:p.deathplace,
+    occupation:p.occupation,nationality:p.nationality,
+    bio:p.bio,notes:p.notes,photo:p.photo||null
+  });
+});
+document.getElementById('dp-add-child-btn').addEventListener('click',()=>{
+  if(!state.selectedId)return;
+  const p=state.people[state.selectedId];
+  state.modalMode={type:'child',targetId:state.selectedId};
+  openModal(`Add Child to ${p.firstName}`);
+});
+document.getElementById('dp-add-spouse-btn').addEventListener('click',()=>{
+  if(!state.selectedId)return;
+  const p=state.people[state.selectedId];
+  state.modalMode={type:'spouse',targetId:state.selectedId};
+  openModal(`Add Spouse to ${p.firstName}`);
+});
+document.getElementById('dp-delete-btn').addEventListener('click',()=>{
+  if(!state.selectedId)return;
+  const p=state.people[state.selectedId];
+  const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
+  showDeleteConfirm(nm, state.selectedId);
+});
+
+function deletePerson(id){
+  const firstName=(state.people[id]||{}).firstName||'Person';
+  // Remove from all references
+  Object.values(state.people).forEach(p=>{
+    p.children=(p.children||[]).filter(c=>c!==id);
+    p.spouses=(p.spouses||[]).filter(s=>s!==id);
+  });
+  state.roots=state.roots.filter(r=>r!==id);
+  delete state.people[id];
+  delete state.collapsed[id];
+  // Clear selection BEFORE save+render so nothing tries to look up the deleted id
+  state.selectedId=null;
+  panel.classList.remove('open');
+  saveState();
+  renderAll();
+  toast(`${firstName} removed from the tree.`);
+}
+
+function showDeleteConfirm(name, id){
+  // Custom confirm overlay — avoids browser confirm() being silently blocked
+  // and avoids any overflow/clipping issues with the detail panel
+  const overlay=document.createElement('div');
+  overlay.style.cssText=`
+    position:fixed;inset:0;z-index:500;
+    background:rgba(30,18,10,.65);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  `;
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px 28px 22px;
+      width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      <div style="font-size:2rem;text-align:center;margin-bottom:10px">🗑️</div>
+      <h3 style="font-family:Georgia,serif;font-size:1.05rem;color:#3D2B1F;
+        text-align:center;margin-bottom:8px;">Remove Person</h3>
+      <p style="font-size:.85rem;color:#8A7060;text-align:center;line-height:1.5;margin-bottom:22px;">
+        Remove <strong style="color:#3D2B1F">${name}</strong> from the tree?<br/>
+        This cannot be undone.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button id="del-cancel" style="flex:1;border:none;border-radius:10px;padding:11px;
+          font-size:.85rem;font-weight:600;cursor:pointer;
+          background:#E5DDD0;color:#3D2B1F;">Cancel</button>
+        <button id="del-confirm" style="flex:1;border:none;border-radius:10px;padding:11px;
+          font-size:.85rem;font-weight:600;cursor:pointer;
+          background:#C0392B;color:#fff;">Yes, Remove</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const remove=()=>document.body.removeChild(overlay);
+  overlay.querySelector('#del-cancel').addEventListener('click',remove);
+  overlay.querySelector('#del-confirm').addEventListener('click',()=>{
+    remove();
+    deletePerson(id);
+  });
+  // Click outside to cancel
+  overlay.addEventListener('click',e=>{if(e.target===overlay)remove();});
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CANVAS EVENT DELEGATION
+═══════════════════════════════════════════════════════════════ */
+canvas.addEventListener('click',e=>{
+  const colBtn=e.target.closest('.btn-collapse');
+  if(colBtn){e.stopPropagation();const id=colBtn.dataset.id;state.collapsed[id]=!state.collapsed[id];saveState();renderAll();return;}
+  const addChild=e.target.closest('[data-action="add-child"]');
+  if(addChild){e.stopPropagation();const id=addChild.dataset.id;const p=state.people[id];state.modalMode={type:'child',targetId:id};openModal(`Add Child to ${p.firstName}`);return;}
+  const addSpouse=e.target.closest('[data-action="add-spouse"]');
+  if(addSpouse){e.stopPropagation();const id=addSpouse.dataset.id;const p=state.people[id];state.modalMode={type:'spouse',targetId:id};openModal(`Add Spouse to ${p.firstName}`);return;}
+  const card=e.target.closest('.person-card');
+  if(card){const id=card.dataset.id;if(state.selectedId===id)closeDetailPanel();else openDetailPanel(id);return;}
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   PAN & ZOOM
+═══════════════════════════════════════════════════════════════ */
+const wrap=document.getElementById('canvas-wrap');
+let isPanning=false,pStartX,pStartY,pOriginX,pOriginY;
+
+function applyTransform(){
+  canvas.style.transform=`translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+}
+
+wrap.addEventListener('mousedown',e=>{
+  if(e.target.closest('.person-card')||e.target.closest('button')||e.target.closest('input'))return;
+  isPanning=true;pStartX=e.clientX;pStartY=e.clientY;pOriginX=state.panX;pOriginY=state.panY;
+  wrap.classList.add('dragging');
+});
+window.addEventListener('mousemove',e=>{
+  if(!isPanning)return;
+  state.panX=pOriginX+(e.clientX-pStartX);state.panY=pOriginY+(e.clientY-pStartY);applyTransform();
+});
+window.addEventListener('mouseup',()=>{isPanning=false;wrap.classList.remove('dragging');});
+
+let touchIds={};
+wrap.addEventListener('touchstart',e=>{
+  [...e.changedTouches].forEach(t=>{touchIds[t.identifier]={x:t.clientX,y:t.clientY}});
+  if(Object.keys(touchIds).length===1){
+    const t=e.changedTouches[0];pStartX=t.clientX;pStartY=t.clientY;pOriginX=state.panX;pOriginY=state.panY;
+  }
+});
+wrap.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(Object.keys(touchIds).length===1){
+    const t=e.changedTouches[0];state.panX=pOriginX+(t.clientX-pStartX);state.panY=pOriginY+(t.clientY-pStartY);applyTransform();
+  }
+},{passive:false});
+wrap.addEventListener('touchend',e=>{[...e.changedTouches].forEach(t=>delete touchIds[t.identifier]);});
+
+wrap.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const d=e.deltaY>0?0.9:1.1;
+  const rect=wrap.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  state.panX=mx-(mx-state.panX)*d;state.panY=my-(my-state.panY)*d;
+  state.zoom=Math.min(3,Math.max(0.15,state.zoom*d));applyTransform();
+},{passive:false});
+
+document.getElementById('btn-zoom-in').addEventListener('click',()=>{state.zoom=Math.min(3,state.zoom*1.2);applyTransform();});
+document.getElementById('btn-zoom-out').addEventListener('click',()=>{state.zoom=Math.max(0.15,state.zoom*.8);applyTransform();});
+document.getElementById('btn-zoom-fit').addEventListener('click',fitView);
+document.getElementById('btn-center').addEventListener('click',fitView);
+
+function fitView(){
+  const pos=Object.values(state.nodePositions);if(!pos.length)return;
+  const minX=Math.min(...pos.map(p=>p.x)),minY=Math.min(...pos.map(p=>p.y));
+  const maxX=Math.max(...pos.map(p=>p.x))+CARD_W,maxY=Math.max(...pos.map(p=>p.y))+CARD_H;
+  const tw=maxX-minX,th=maxY-minY;
+  const vw=wrap.clientWidth,vh=wrap.clientHeight;
+  state.zoom=Math.min(1.2,Math.min(vw/(tw+160),vh/(th+160)));
+  state.panX=(vw-tw*state.zoom)/2-minX*state.zoom;
+  state.panY=(vh-th*state.zoom)/2-minY*state.zoom+20;
+  applyTransform();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOP BAR BUTTONS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('btn-add-root').addEventListener('click',()=>{
+  state.modalMode={type:'root'};openModal('Add Root Ancestor');
+});
+
+/* FIX: Export — build link, append to body, click, then immediately remove.
+   Do NOT use an <a> hidden inside the button (that would conflict with the import input). */
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const json=JSON.stringify({people:state.people,roots:state.roots,nextId:state.nextId},null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='family-tree.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Tree exported as family-tree.json');
+});
+
+document.getElementById('btn-import').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.people||!data.roots)throw new Error('Invalid structure');
+      state.people=data.people;state.roots=data.roots;state.nextId=data.nextId||200;
+      state.collapsed={};state.selectedId=null;
+      closeDetailPanel();saveState();renderAll();fitView();
+      toast('Tree imported successfully!');
+    }catch{toast('Invalid family tree JSON file.');}
+  };
+  reader.readAsText(file);e.target.value='';
+});
+
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  if(!confirm('Reset to the default sample family? All your changes will be lost.'))return;
+  resetToDefault();state.selectedId=null;
+  closeDetailPanel();saveState();renderAll();fitView();
+  toast('Tree reset to sample data.');
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   KEYBOARD
+═══════════════════════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(cropOverlay.classList.contains('open')){
+      cropOverlay.classList.remove('open');
+      if(cropState.resolveCallback){cropState.resolveCallback(null);cropState.resolveCallback=null;}
+      return;
+    }
+    closeModal();closeDetailPanel();
+  }
+  if(e.key==='Enter'&&modalOverlay.classList.contains('open')&&!e.target.matches('textarea'))handleModalSave();
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════ */
+let toastTimer;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+loadState();
+renderAll();
+applyTransform();
+setTimeout(fitView,120);
+</script>
+</body>
+</html>
