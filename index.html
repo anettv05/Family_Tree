@@ -531,17 +531,26 @@ let state = {
   panX:80,panY:80,zoom:1,
 };
 
-function loadState(){
-  try{
-    const raw=localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const s=JSON.parse(raw);
-      state.people=s.people||{};state.roots=s.roots||[];
-      state.nextId=s.nextId||100;state.collapsed=s.collapsed||{};
-    } else {
-      resetToDefault();
+async function loadState() {
+    try {
+        const response = await fetch('family-tree.json');
+
+        if (!response.ok)
+            throw new Error('JSON not found');
+
+        const data = await response.json();
+
+        state.people = data.people || {};
+        state.roots = data.roots || [];
+        state.nextId = data.nextId || 100;
+
+    } catch(err) {
+        console.error(err);
+
+        state.people = {};
+        state.roots = [];
+        state.nextId = 100;
     }
-  }catch(e){resetToDefault()}
 }
 function resetToDefault(){
   state.people=JSON.parse(JSON.stringify(DEFAULT_DATA.people));
@@ -1311,8 +1320,11 @@ function toast(msg){
 /* ═══════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════ */
-loadState();
-renderAll();
+loadState().then(() => {
+    renderAll();
+    applyTransform();
+    setTimeout(fitView, 100);
+});
 applyTransform();
 setTimeout(fitView,120);
 </script>
