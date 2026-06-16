@@ -456,7 +456,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS & STORAGE KEY
 ═══════════════════════════════════════════════════════════════ */
-const STORAGE_KEY = 'familyTreeData_v5';
+const STORAGE_KEY = 'familyTreeData_v6';
 const CARD_W = 170, CARD_H = 222, COL_GAP = 58, ROW_GAP = 112, SPOUSE_GAP = 26;
 
 /* ═══════════════════════════════════════════════════════════════
@@ -531,26 +531,17 @@ let state = {
   panX:80,panY:80,zoom:1,
 };
 
-async function loadState() {
-    try {
-        const response = await fetch('family-tree.json');
-
-        if (!response.ok)
-            throw new Error('JSON not found');
-
-        const data = await response.json();
-
-        state.people = data.people || {};
-        state.roots = data.roots || [];
-        state.nextId = data.nextId || 100;
-
-    } catch(err) {
-        console.error(err);
-
-        state.people = {};
-        state.roots = [];
-        state.nextId = 100;
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const s=JSON.parse(raw);
+      state.people=s.people||{};state.roots=s.roots||[];
+      state.nextId=s.nextId||100;state.collapsed=s.collapsed||{};
+    } else {
+      resetToDefault();
     }
+  }catch(e){resetToDefault()}
 }
 function resetToDefault(){
   state.people=JSON.parse(JSON.stringify(DEFAULT_DATA.people));
@@ -569,103 +560,132 @@ function genId(){return 'p'+(state.nextId++)}
 
 /* ═══════════════════════════════════════════════════════════════
    TREE LAYOUT
+   
+   KEY DESIGN PRINCIPLE:
+   Every person is either a PRIMARY node or a SPOUSE node.
+   - PRIMARY nodes own their children and drive layout.
+   - SPOUSE nodes are placed to the right of their primary; they
+     NEVER independently draw child lines or drive layout.
+   - state.primarySet  = Set of IDs that are primary anchors.
+   - state.spouseOfMap = Map  spouseId → primaryId
+   This eliminates all duplicate line drawing and overlap.
 ═══════════════════════════════════════════════════════════════ */
 
-/* Get unique children for a person, de-duped across spouses */
-function getChildren(person){
+/* Children owned by a primary person only — from their own array.
+   We do NOT pull children from the spouse's array.
+   When a child is added via modal it goes into the clicked person's
+   children[] only.  If both spouses list the same child we de-dup. */
+function getPrimaryChildren(personId){
+  const p=state.people[personId];
+  if(!p)return[];
   const seen=new Set();
   const out=[];
-  (person.children||[]).forEach(id=>{
-    if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id)}
+  (p.children||[]).forEach(id=>{
+    if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}
+  });
+  // Also pull children listed on spouses that aren't already in our list,
+  // so that spouse-added children still appear (de-duped).
+  (p.spouses||[]).forEach(sid=>{
+    const sp=state.people[sid];
+    if(!sp)return;
+    (sp.children||[]).forEach(id=>{
+      if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}
+    });
   });
   return out;
 }
 
-/* Compute pixel-width of a person's entire subtree */
-function getUnitWidth(personId,visited=new Set()){
+/* Width of one person's full subtree (couple + all descendants) */
+function getUnitWidth(personId, visited=new Set()){
   if(visited.has(personId))return CARD_W;
   visited.add(personId);
   const p=state.people[personId];
   if(!p)return CARD_W;
 
-  // Mark spouses visited immediately so they can't recurse back to us
-  const mySpouses=(p.spouses||[]).filter(s=>!visited.has(s));
+  // Spouses sit to the right — mark visited so they can't recurse back
+  const mySpouses=(p.spouses||[]).filter(s=>s&&!visited.has(s)&&state.people[s]);
   mySpouses.forEach(s=>visited.add(s));
-  const selfW=CARD_W+mySpouses.length*(CARD_W+SPOUSE_GAP);
+  const coupleW=CARD_W + mySpouses.length*(CARD_W+SPOUSE_GAP);
 
-  if(state.collapsed[personId])return selfW;
+  if(state.collapsed[personId])return coupleW;
 
-  const children=getChildren(p);
-  if(!children.length)return selfW;
+  const children=getPrimaryChildren(personId);
+  if(!children.length)return coupleW;
 
-  const childW=children.reduce((s,cid,i)=>{
-    return s+getUnitWidth(cid,new Set(visited))+(i?COL_GAP:0);
+  const childrenW=children.reduce((sum,cid,i)=>{
+    return sum + getUnitWidth(cid, new Set(visited)) + (i?COL_GAP:0);
   },0);
-  return Math.max(selfW,childW);
+  return Math.max(coupleW, childrenW);
 }
 
-function layoutTree(personId,x,y,visited=new Set()){
+/* Place one person + their couple + descendants recursively.
+   visited  — global set; prevents any node being placed twice.
+   primarySet / spouseOfMap updated here so renderLines can use them. */
+function layoutTree(personId, x, y, visited, primarySet, spouseOfMap){
   if(visited.has(personId))return;
   visited.add(personId);
+
   const p=state.people[personId];
   if(!p)return;
 
+  primarySet.add(personId);
   state.nodePositions[personId]={x,y};
 
-  // Place spouses to the right; mark them visited immediately so children
-  // can never loop back and re-enter either the primary person or their spouse.
+  // Place spouses immediately to the right
   let sx=x+CARD_W+SPOUSE_GAP;
   let placedSpouseCount=0;
   (p.spouses||[]).forEach(sid=>{
-    if(visited.has(sid))return;
+    if(!sid||!state.people[sid]||visited.has(sid))return;
     visited.add(sid);
-    state.nodePositions[sid]={x:sx,y};
+    spouseOfMap.set(sid, personId);          // spouse → primary mapping
+    state.nodePositions[sid]={x:sx, y};
     sx+=CARD_W+SPOUSE_GAP;
     placedSpouseCount++;
   });
 
   if(state.collapsed[personId])return;
 
-  const children=getChildren(p);
+  const children=getPrimaryChildren(personId);
   if(!children.length)return;
 
-  const childWidths=children.map(cid=>getUnitWidth(cid,new Set(visited)));
+  // Pre-compute all child widths before placing any of them
+  const childWidths=children.map(cid=>getUnitWidth(cid, new Set(visited)));
   const totalW=childWidths.reduce((s,w,i)=>s+w+(i?COL_GAP:0),0);
 
-  // Centre children under the couple unit (primary + placed spouses)
-  const coupleW=CARD_W+placedSpouseCount*(CARD_W+SPOUSE_GAP);
-  const midX=x+coupleW/2;
-  let cx=midX-totalW/2;
+  // Mid-point of the couple unit
+  const coupleW=CARD_W + placedSpouseCount*(CARD_W+SPOUSE_GAP);
+  const midX=x + coupleW/2;
+  let cx=midX - totalW/2;
   const cy=y+CARD_H+ROW_GAP;
 
   children.forEach((cid,i)=>{
-    layoutTree(cid,cx,cy,visited);
+    layoutTree(cid, cx, cy, visited, primarySet, spouseOfMap);
     cx+=childWidths[i]+COL_GAP;
   });
 }
 
 function computeLayout(){
   state.nodePositions={};
+  state.primarySet   = new Set();   // IDs that are layout primaries
+  state.spouseOfMap  = new Map();   // spouseId -> primaryId
 
-  // Build primary roots list. For every couple both people are in state.roots and
-  // list each other as spouses — a symmetric "already excluded by each other" filter
-  // caused primary=[] (blank screen). Fix: iterate roots in order; the FIRST person
-  // seen becomes the primary anchor, their spouses are marked as covered and skipped.
+  // Determine primary root anchors.
+  // Iterate state.roots in order; first occurrence wins as primary.
+  // Spouses of already-claimed primaries are skipped.
   const covered=new Set();
-  const primary=[];
+  const primaryRoots=[];
   state.roots.forEach(id=>{
     if(!state.people[id]||covered.has(id))return;
-    primary.push(id);
+    primaryRoots.push(id);
     (state.people[id].spouses||[]).forEach(sid=>covered.add(sid));
   });
 
-  // Use one shared Set so no node is positioned twice across separate root families.
-  const globalPlaced=new Set();
+  const globalVisited=new Set();
   let sx=80;
-  primary.forEach(rid=>{
-    const w=getUnitWidth(rid,new Set());
-    layoutTree(rid,sx,60,globalPlaced);
-    sx+=Math.max(w,CARD_W)+COL_GAP*2;
+  primaryRoots.forEach(rid=>{
+    const w=getUnitWidth(rid, new Set());
+    layoutTree(rid, sx, 60, globalVisited, state.primarySet, state.spouseOfMap);
+    sx+=Math.max(w, CARD_W)+COL_GAP*2;
   });
 }
 
@@ -703,7 +723,9 @@ function renderCards(){
     node.id=`node-${id}`;
     node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:${CARD_W}px`;
     const sel=state.selectedId===id;
-    const hasKids=getChildren(p).length>0;
+    // Only the PRIMARY of a couple shows the collapse button and owns children
+    const isPrimary=state.primarySet&&state.primarySet.has(id);
+    const hasKids=isPrimary && getPrimaryChildren(id).length>0;
     const col=state.collapsed[id];
     const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
     node.innerHTML=`
@@ -724,39 +746,102 @@ function renderCards(){
 
 function renderLines(){
   svgEl.innerHTML='';
-  const pos=Object.values(state.nodePositions);
-  if(!pos.length)return;
-  const maxX=Math.max(...pos.map(p=>p.x))+CARD_W+200;
-  const maxY=Math.max(...pos.map(p=>p.y))+CARD_H+200;
-  svgEl.setAttribute('width',maxX);svgEl.setAttribute('height',maxY);
+  const allPos=Object.values(state.nodePositions);
+  if(!allPos.length)return;
 
-  const doneSpouse=new Set(),doneChild=new Set();
-  Object.values(state.people).forEach(p=>{
-    const pp=state.nodePositions[p.id];if(!pp)return;
-    // Spouse lines
+  // SVG must cover all positioned nodes (including negative-x nodes shifted by pan)
+  const minX=Math.min(...allPos.map(p=>p.x));
+  const minY=Math.min(...allPos.map(p=>p.y));
+  const maxX=Math.max(...allPos.map(p=>p.x))+CARD_W+200;
+  const maxY=Math.max(...allPos.map(p=>p.y))+CARD_H+200;
+  // Offset SVG if nodes went negative
+  const offX=minX<0?Math.abs(minX)+40:0;
+  const offY=minY<0?Math.abs(minY)+40:0;
+  if(offX||offY){
+    // Shift all node positions so nothing is negative
+    Object.keys(state.nodePositions).forEach(id=>{
+      state.nodePositions[id].x+=offX;
+      state.nodePositions[id].y+=offY;
+    });
+    // Re-render cards with corrected positions
+    document.querySelectorAll('.person-node').forEach(el=>{
+      const id=el.id.replace('node-','');
+      const pos=state.nodePositions[id];
+      if(pos){el.style.left=pos.x+'px';el.style.top=pos.y+'px';}
+    });
+  }
+
+  svgEl.setAttribute('width',  maxX+offX);
+  svgEl.setAttribute('height', maxY+offY);
+
+  const doneSpouse=new Set();
+
+  // Only iterate PRIMARY nodes for drawing lines.
+  // Spouses never draw their own child lines — eliminates all merging/overlap.
+  const primaries = state.primarySet
+    ? [...state.primarySet]
+    : Object.keys(state.nodePositions);
+
+  primaries.forEach(pid=>{
+    const p=state.people[pid];
+    const pp=state.nodePositions[pid];
+    if(!p||!pp)return;
+
+    // ── Spouse connector lines (dashed gold) ──────────────────
+    // Draw from primary → each placed spouse
     (p.spouses||[]).forEach(sid=>{
-      const key=[p.id,sid].sort().join('-');
-      if(doneSpouse.has(key))return;doneSpouse.add(key);
-      const sp=state.nodePositions[sid];if(!sp)return;
-      const x1=pp.x+CARD_W,y1=pp.y+CARD_H/2;
-      const x2=sp.x,y2=sp.y+CARD_H/2;
+      const key=[pid,sid].sort().join('-');
+      if(doneSpouse.has(key))return;
+      doneSpouse.add(key);
+      const sp=state.nodePositions[sid];
+      if(!sp)return;
+      // Always draw left→right: find which is leftmost
+      const leftPos  = pp.x < sp.x ? pp : sp;
+      const rightPos = pp.x < sp.x ? sp : pp;
+      const x1=leftPos.x+CARD_W, y1=leftPos.y+CARD_H/2;
+      const x2=rightPos.x,       y2=rightPos.y+CARD_H/2;
       svgEl.appendChild(mkLine(x1,y1,x2,y2,'#C9A84C',true));
     });
-    // Child lines
-    if(state.collapsed[p.id])return;
-    const kids=getChildren(p);if(!kids.length)return;
-    const spPos=(p.spouses||[]).map(s=>state.nodePositions[s]).filter(Boolean);
-    const allX=[pp.x,...spPos.map(s=>s.x)];
-    const midX=(Math.min(...allX)+Math.max(...allX)+CARD_W)/2;
+
+    // ── Child connector lines (solid, elbow) ──────────────────
+    // ONLY from primary nodes, NEVER from spouses
+    if(state.collapsed[pid])return;
+    const kids=getPrimaryChildren(pid);
+    if(!kids.length)return;
+
+    // Mid-point of the couple unit (primary + all placed spouses)
+    const placedSpousePositions=(p.spouses||[])
+      .map(s=>state.nodePositions[s]).filter(Boolean);
+    const allX=[pp.x, ...placedSpousePositions.map(s=>s.x)];
+    const coupleLeft =Math.min(...allX);
+    const coupleRight=Math.max(...allX)+CARD_W;
+    const midX=(coupleLeft+coupleRight)/2;
     const botY=pp.y+CARD_H;
-    kids.forEach(cid=>{
-      const key=`${p.id}->${cid}`;
-      if(doneChild.has(key))return;doneChild.add(key);
-      const cp=state.nodePositions[cid];if(!cp)return;
-      const cMid=cp.x+CARD_W/2,cTop=cp.y,halfY=botY+ROW_GAP/2;
-      const d=`M${midX} ${botY}L${midX} ${halfY}L${cMid} ${halfY}L${cMid} ${cTop}`;
-      svgEl.appendChild(mkPath(d,'#8A7060'));
-    });
+
+    // Collect valid child positions
+    const validKids=kids.map(cid=>({cid,cp:state.nodePositions[cid]})).filter(({cp})=>cp);
+    if(!validKids.length)return;
+
+    const halfY=botY+ROW_GAP/2;
+
+    // Single vertical down from parent mid, then horizontal bar, then drops to each child
+    if(validKids.length===1){
+      const {cp}=validKids[0];
+      const cMid=cp.x+CARD_W/2;
+      svgEl.appendChild(mkPath(`M${midX} ${botY}L${midX} ${halfY}L${cMid} ${halfY}L${cMid} ${cp.y}`,'#8A7060'));
+    } else {
+      // Vertical stem down from parent
+      svgEl.appendChild(mkPath(`M${midX} ${botY}L${midX} ${halfY}`,'#8A7060'));
+      // Horizontal bar spanning all children
+      const leftChildMid =validKids[0].cp.x+CARD_W/2;
+      const rightChildMid=validKids[validKids.length-1].cp.x+CARD_W/2;
+      svgEl.appendChild(mkPath(`M${leftChildMid} ${halfY}L${rightChildMid} ${halfY}`,'#8A7060'));
+      // Vertical drop to each child
+      validKids.forEach(({cp})=>{
+        const cMid=cp.x+CARD_W/2;
+        svgEl.appendChild(mkPath(`M${cMid} ${halfY}L${cMid} ${cp.y}`,'#8A7060'));
+      });
+    }
   });
 }
 
@@ -1094,8 +1179,11 @@ document.getElementById('dp-edit-btn').addEventListener('click',()=>{
 });
 document.getElementById('dp-add-child-btn').addEventListener('click',()=>{
   if(!state.selectedId)return;
-  const p=state.people[state.selectedId];
-  state.modalMode={type:'child',targetId:state.selectedId};
+  // If selected person is a spouse, add child to their primary instead
+  let targetId=state.selectedId;
+  if(state.spouseOfMap&&state.spouseOfMap.has(targetId)) targetId=state.spouseOfMap.get(targetId);
+  const p=state.people[targetId];
+  state.modalMode={type:'child',targetId};
   openModal(`Add Child to ${p.firstName}`);
 });
 document.getElementById('dp-add-spouse-btn').addEventListener('click',()=>{
@@ -1175,11 +1263,30 @@ function showDeleteConfirm(name, id){
 ═══════════════════════════════════════════════════════════════ */
 canvas.addEventListener('click',e=>{
   const colBtn=e.target.closest('.btn-collapse');
-  if(colBtn){e.stopPropagation();const id=colBtn.dataset.id;state.collapsed[id]=!state.collapsed[id];saveState();renderAll();return;}
+  if(colBtn){
+    e.stopPropagation();
+    const id=colBtn.dataset.id;
+    state.collapsed[id]=!state.collapsed[id];
+    saveState();renderAll();return;
+  }
   const addChild=e.target.closest('[data-action="add-child"]');
-  if(addChild){e.stopPropagation();const id=addChild.dataset.id;const p=state.people[id];state.modalMode={type:'child',targetId:id};openModal(`Add Child to ${p.firstName}`);return;}
+  if(addChild){
+    e.stopPropagation();
+    let id=addChild.dataset.id;
+    // If clicked on a spouse card, redirect add-child to the primary person
+    if(state.spouseOfMap&&state.spouseOfMap.has(id)) id=state.spouseOfMap.get(id);
+    const p=state.people[id];
+    state.modalMode={type:'child',targetId:id};
+    openModal(`Add Child to ${p.firstName}`);return;
+  }
   const addSpouse=e.target.closest('[data-action="add-spouse"]');
-  if(addSpouse){e.stopPropagation();const id=addSpouse.dataset.id;const p=state.people[id];state.modalMode={type:'spouse',targetId:id};openModal(`Add Spouse to ${p.firstName}`);return;}
+  if(addSpouse){
+    e.stopPropagation();
+    const id=addSpouse.dataset.id;
+    const p=state.people[id];
+    state.modalMode={type:'spouse',targetId:id};
+    openModal(`Add Spouse to ${p.firstName}`);return;
+  }
   const card=e.target.closest('.person-card');
   if(card){const id=card.dataset.id;if(state.selectedId===id)closeDetailPanel();else openDetailPanel(id);return;}
 });
@@ -1320,11 +1427,8 @@ function toast(msg){
 /* ═══════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════ */
-loadState().then(() => {
-    renderAll();
-    applyTransform();
-    setTimeout(fitView, 100);
-});
+loadState();
+renderAll();
 applyTransform();
 setTimeout(fitView,120);
 </script>
