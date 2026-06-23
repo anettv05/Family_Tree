@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>Family Heritage Tree</title>
 <style>
-/* ── Reset & Base ───────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#FAF7F2;--card:#FFFFFF;--card-border:#E5DDD0;
@@ -13,58 +12,61 @@
   --accent:#6B8F71;--accent-h:#527A58;
   --gold:#C9A84C;--gold-light:#F0E4B8;
   --danger:#C0392B;
-  --line-child:#8A7060;--line-spouse:#C9A84C;
-  --shadow:rgba(61,43,31,.10);--modal-bg:rgba(30,18,10,.60);
-  --radius:14px;
+  --shadow:rgba(61,43,31,.10);--modal-bg:rgba(30,18,10,.62);
+  --radius:14px;--bar:56px;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow:hidden}
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  overflow:hidden;-webkit-text-size-adjust:100%}
 
-/* ── Top Bar ─────────────────────────────────────────────────── */
+/* ── Top Bar ───────────────────────────────────────────────── */
 #topbar{
-  position:fixed;top:0;left:0;right:0;z-index:100;height:56px;
+  position:fixed;top:0;left:0;right:0;z-index:200;height:var(--bar);
   background:var(--text);display:flex;align-items:center;
-  padding:0 20px;gap:10px;box-shadow:0 2px 12px var(--shadow);
+  padding:0 10px;gap:7px;
+  box-shadow:0 2px 12px var(--shadow);
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;
 }
+#topbar::-webkit-scrollbar{display:none}
 #topbar h1{
-  font-family:Georgia,serif;font-size:1.15rem;font-weight:700;
-  color:var(--gold-light);letter-spacing:.04em;flex:1;white-space:nowrap;
+  font-family:Georgia,serif;font-size:.95rem;font-weight:700;
+  color:var(--gold-light);letter-spacing:.03em;flex-shrink:0;
+  white-space:nowrap;padding-right:4px;
 }
 .tb-btn{
-  background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
-  color:#fff;border-radius:8px;padding:6px 12px;font-size:.76rem;
-  cursor:pointer;transition:background .15s;white-space:nowrap;flex-shrink:0;
-  position:relative;
+  background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.2);
+  color:#fff;border-radius:8px;padding:0 11px;font-size:.72rem;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  position:relative;-webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;height:34px;display:flex;align-items:center;
+  -webkit-appearance:none;
 }
-.tb-btn:hover{background:rgba(255,255,255,.22)}
+.tb-btn:active{background:rgba(255,255,255,.26)}
 .tb-btn.green{background:#6B8F71;border-color:#527A58}
-.tb-btn.green:hover{background:#527A58}
-.tb-btn.danger{background:rgba(192,57,43,.35);border-color:rgba(192,57,43,.5)}
-.tb-btn.danger:hover{background:rgba(192,57,43,.55)}
-/* Hidden file input inside import button */
-#btn-import{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+.tb-btn.green:active{background:#527A58}
+.tb-btn.danger{background:rgba(192,57,43,.38);border-color:rgba(192,57,43,.55)}
+.tb-btn.danger:active{background:rgba(192,57,43,.6)}
+#btn-import{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;width:100%;height:100%}
 
-/* ── Zoom Controls ──────────────────────────────────────────── */
-#zoom-controls{
-  position:fixed;bottom:24px;right:24px;z-index:100;
-  display:flex;flex-direction:column;gap:6px;
+/* ── Canvas wrap ───────────────────────────────────────────── */
+#canvas-wrap{
+  position:fixed;top:var(--bar);left:0;right:0;bottom:0;
+  overflow:hidden;
+  /* touch-action:none — set by JS after load so normal page scroll isn't
+     broken during load, but we need none for our custom pinch handler */
+  touch-action:none;
+  -webkit-user-select:none;user-select:none;
+  cursor:grab;
 }
-.zoom-btn{
-  width:38px;height:38px;border-radius:50%;
-  background:var(--text);color:#fff;border:none;
-  font-size:1.2rem;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 2px 8px var(--shadow);transition:transform .1s;
-}
-.zoom-btn:hover{transform:scale(1.1)}
-
-/* ── Canvas ─────────────────────────────────────────────────── */
-#canvas-wrap{position:fixed;top:56px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
 #canvas-wrap.dragging{cursor:grabbing}
-#canvas{position:absolute;transform-origin:0 0}
+#canvas{
+  position:absolute;transform-origin:0 0;
+  will-change:transform;
+}
 #svg-lines{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
 
-/* ── Person Card ────────────────────────────────────────────── */
+/* ── Person Card ───────────────────────────────────────────── */
 .person-node{position:absolute;width:170px}
 .person-card{
   background:var(--card);border:1.5px solid var(--card-border);
@@ -72,210 +74,308 @@ html,body{height:100%;background:var(--bg);color:var(--text);
   display:flex;flex-direction:column;align-items:center;gap:6px;
   cursor:pointer;box-shadow:0 2px 10px var(--shadow);
   transition:box-shadow .2s,border-color .2s;
-  position:relative;user-select:none;
+  position:relative;
+  /* Do NOT set user-select or touch-action here — inherit from wrap */
+  -webkit-tap-highlight-color:rgba(201,168,76,.15);
 }
-.person-card:hover{box-shadow:0 6px 22px rgba(61,43,31,.18);border-color:var(--gold)}
+.person-card:active{border-color:var(--gold);box-shadow:0 4px 16px rgba(61,43,31,.18)}
 .person-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(107,143,113,.28)}
 .gen-badge{
   position:absolute;top:-9px;left:50%;transform:translateX(-50%);
   background:var(--gold);color:#3D2B1F;
-  font-size:.6rem;font-weight:700;letter-spacing:.08em;
+  font-size:.58rem;font-weight:700;letter-spacing:.07em;
   padding:2px 8px;border-radius:20px;white-space:nowrap;
 }
 .photo-wrap{
-  width:70px;height:70px;border-radius:50%;
+  width:68px;height:68px;border-radius:50%;
   border:3px solid var(--card-border);overflow:hidden;background:var(--bg);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:border-color .2s;
+  pointer-events:none;
 }
-.person-card:hover .photo-wrap{border-color:var(--gold)}
 .photo-wrap img{width:100%;height:100%;object-fit:cover}
-.photo-placeholder{font-size:2rem;color:var(--card-border)}
-.card-name{font-family:Georgia,serif;font-size:.82rem;font-weight:700;color:var(--text);text-align:center;line-height:1.25}
-.card-dates{font-size:.68rem;color:var(--text-muted);text-align:center}
+.photo-placeholder{font-size:1.9rem;color:var(--card-border)}
+.card-name{font-family:Georgia,serif;font-size:.8rem;font-weight:700;color:var(--text);text-align:center;line-height:1.25;pointer-events:none}
+.card-dates{font-size:.66rem;color:var(--text-muted);text-align:center;pointer-events:none}
 .card-actions{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;justify-content:center}
-.card-btn{font-size:.65rem;border:none;border-radius:20px;padding:3px 9px;cursor:pointer;font-weight:600;transition:background .15s,transform .1s}
-.card-btn:hover{transform:scale(1.06)}
+.card-btn{
+  font-size:.63rem;border:none;border-radius:20px;padding:5px 9px;
+  cursor:pointer;font-weight:600;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  min-height:26px;-webkit-appearance:none;
+}
+.card-btn:active{opacity:.75;transform:scale(.97)}
 .btn-add-child{background:var(--accent);color:#fff}
-.btn-add-child:hover{background:var(--accent-h)}
 .btn-add-spouse{background:var(--gold);color:var(--text)}
-.btn-add-spouse:hover{background:#b8942e}
 .btn-collapse{
   background:var(--card-border);color:var(--text-muted);
-  position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);
-  border:1.5px solid var(--card-border);border-radius:20px;
-  padding:1px 10px;font-size:.65rem;cursor:pointer;z-index:5;
-  transition:background .15s;white-space:nowrap;
+  position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);
+  border:1.5px solid #d5ccc0;border-radius:20px;
+  padding:2px 10px;font-size:.62rem;cursor:pointer;z-index:5;
+  white-space:nowrap;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;-webkit-appearance:none;
 }
-.btn-collapse:hover{background:var(--gold-light)}
+.btn-collapse:active{background:var(--gold-light)}
 
-/* ── Detail Panel ───────────────────────────────────────────── */
+/* ── Zoom Controls ─────────────────────────────────────────── */
+#zoom-controls{
+  position:fixed;right:14px;z-index:150;
+  display:flex;flex-direction:column;gap:8px;
+  /* sit above phone home indicator */
+  bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+}
+.zoom-btn{
+  width:46px;height:46px;border-radius:50%;
+  background:var(--text);color:#fff;border:none;
+  font-size:1.25rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 14px rgba(0,0,0,.28);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;-webkit-appearance:none;
+}
+.zoom-btn:active{background:#5a3e2e;transform:scale(.94)}
+#zoom-label{
+  font-size:.6rem;color:rgba(255,255,255,.7);text-align:center;
+  background:rgba(61,43,31,.55);border-radius:12px;
+  padding:3px 6px;white-space:nowrap;
+}
+
+/* ── Pinch hint ─────────────────────────────────────────────── */
+#pinch-hint{
+  position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);
+  left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(61,43,31,.82);color:#fff;
+  font-size:.75rem;padding:8px 18px;border-radius:30px;
+  pointer-events:none;opacity:0;z-index:300;
+  transition:opacity .3s ease,transform .3s ease;white-space:nowrap;
+}
+#pinch-hint.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Legend ─────────────────────────────────────────────────── */
+#legend{
+  position:fixed;left:12px;z-index:150;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+  background:var(--card);border:1px solid var(--card-border);
+  border-radius:10px;padding:8px 12px;
+  font-size:.68rem;color:var(--text-muted);
+  box-shadow:0 2px 10px var(--shadow);
+}
+@media(max-width:480px){#legend{display:none}}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.legend-item:last-child{margin-bottom:0}
+.legend-line{width:28px;height:2px}
+.legend-line.child{background:#8A7060}
+.legend-line.spouse{background:transparent;border-top:2px dashed #C9A84C;height:0}
+
+/* ── Detail Panel ──────────────────────────────────────────── */
 #detail-panel{
-  position:fixed;top:56px;right:0;bottom:0;width:340px;
+  position:fixed;top:var(--bar);right:0;bottom:0;width:340px;
   background:var(--card);border-left:1.5px solid var(--card-border);
   box-shadow:-6px 0 24px var(--shadow);
-  z-index:90;transform:translateX(100%);
+  z-index:180;transform:translateX(102%);
   transition:transform .3s cubic-bezier(.4,0,.2,1);
   display:flex;flex-direction:column;overflow:hidden;
 }
 #detail-panel.open{transform:translateX(0)}
+@media(max-width:600px){
+  #detail-panel{
+    top:auto;left:0;right:0;bottom:0;width:100%;
+    height:75vh;max-height:75vh;
+    border-left:none;border-top:1.5px solid var(--card-border);
+    border-radius:20px 20px 0 0;
+    transform:translateY(102%);
+    box-shadow:0 -6px 28px var(--shadow);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  #detail-panel.open{transform:translateY(0)}
+  #detail-panel::before{
+    content:'';display:block;flex-shrink:0;
+    width:40px;height:4px;background:var(--card-border);
+    border-radius:2px;margin:10px auto 2px;
+  }
+}
 .dp-header{
-  padding:20px 20px 16px;display:flex;align-items:flex-start;gap:12px;
-  border-bottom:1px solid var(--card-border);
+  padding:16px 20px 14px;display:flex;align-items:flex-start;gap:12px;
+  border-bottom:1px solid var(--card-border);flex-shrink:0;
 }
 .dp-photo{
-  width:72px;height:72px;border-radius:50%;
+  width:68px;height:68px;border-radius:50%;
   border:3px solid var(--card-border);overflow:hidden;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  background:var(--bg);font-size:2rem;color:var(--card-border);
+  background:var(--bg);font-size:1.9rem;color:var(--card-border);
   position:relative;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
 .dp-photo img{width:100%;height:100%;object-fit:cover}
 .dp-photo-badge{
-  position:absolute;bottom:0;right:0;
-  background:var(--gold);border-radius:50%;
-  width:22px;height:22px;font-size:.75rem;
-  display:flex;align-items:center;justify-content:center;
-  pointer-events:none;
+  position:absolute;bottom:0;right:0;background:var(--gold);
+  border-radius:50%;width:22px;height:22px;font-size:.72rem;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
 }
-#dp-photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+#dp-photo-input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;width:100%;height:100%}
 .dp-name-block{flex:1;min-width:0}
-.dp-name{font-family:Georgia,serif;font-size:1.1rem;font-weight:700;line-height:1.2;color:var(--text);word-break:break-word}
-.dp-dates{font-size:.75rem;color:var(--text-muted);margin-top:2px}
-.dp-gen{font-size:.68rem;color:var(--accent);font-weight:600;margin-top:4px}
-#dp-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);transition:color .15s;z-index:2}
-#dp-close:hover{color:var(--text)}
-.dp-body{flex:1;overflow-y:auto;padding:16px 20px}
-.dp-section{margin-bottom:16px}
-.dp-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
-.dp-value{font-size:.85rem;color:var(--text);line-height:1.5}
-.dp-divider{border:none;border-top:1px solid var(--card-border);margin:12px 0}
-.dp-actions{display:flex;flex-direction:column;gap:8px;padding:0 20px 20px}
-.dp-action-btn{border:none;border-radius:10px;padding:10px;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s}
+.dp-name{font-family:Georgia,serif;font-size:1.05rem;font-weight:700;line-height:1.2;color:var(--text);word-break:break-word}
+.dp-dates{font-size:.72rem;color:var(--text-muted);margin-top:2px}
+.dp-gen{font-size:.66rem;color:var(--accent);font-weight:600;margin-top:4px}
+#dp-close{
+  position:absolute;top:12px;right:14px;background:none;border:none;
+  font-size:1.3rem;cursor:pointer;color:var(--text-muted);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;
+}
+.dp-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px}
+.dp-section{margin-bottom:14px}
+.dp-label{font-size:.63rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px}
+.dp-value{font-size:.83rem;color:var(--text);line-height:1.5}
+.dp-divider{border:none;border-top:1px solid var(--card-border);margin:10px 0}
+.dp-actions{display:flex;flex-direction:column;gap:8px;padding:0 18px 18px;flex-shrink:0}
+.dp-action-btn{
+  border:none;border-radius:10px;padding:11px;font-size:.82rem;font-weight:600;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;-webkit-appearance:none;
+}
+.dp-action-btn:active{opacity:.82}
 .dp-action-btn.primary{background:var(--accent);color:#fff}
-.dp-action-btn.primary:hover{background:var(--accent-h)}
 .dp-action-btn.secondary{background:var(--gold-light);color:var(--text)}
-.dp-action-btn.secondary:hover{background:var(--gold)}
 .dp-action-btn.del{background:#fde8e6;color:var(--danger)}
-.dp-action-btn.del:hover{background:#f5c6c4}
 
-/* ── Add/Edit Person Modal ──────────────────────────────────── */
+/* ── Add/Edit Person Modal ─────────────────────────────────── */
 #modal-overlay{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:250;
   background:var(--modal-bg);
   display:none;align-items:center;justify-content:center;
-  backdrop-filter:blur(4px);padding:20px;
+  backdrop-filter:blur(4px);padding:16px;
 }
 #modal-overlay.open{display:flex}
+@media(max-width:600px){
+  #modal-overlay{padding:0;align-items:flex-end}
+}
 .modal{
   background:var(--card);border-radius:18px;
-  padding:26px 26px 20px;width:440px;max-width:100%;
+  padding:22px 20px 18px;width:460px;max-width:100%;
   box-shadow:0 24px 60px rgba(0,0,0,.35);
-  position:relative;animation:popIn .2s ease;
-  max-height:90vh;overflow-y:auto;
+  position:relative;
+  max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
-@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.modal h2{font-family:Georgia,serif;font-size:1.1rem;margin-bottom:16px;color:var(--text)}
-#modal-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted)}
-
-/* Photo upload row inside person modal */
+@media(max-width:600px){
+  .modal{
+    width:100%;border-radius:22px 22px 0 0;
+    max-height:94vh;padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 22px);
+  }
+}
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal h2{font-family:Georgia,serif;font-size:1.05rem;margin-bottom:14px;color:var(--text)}
+#modal-close{
+  position:absolute;top:14px;right:16px;background:none;border:none;
+  font-size:1.3rem;cursor:pointer;color:var(--text-muted);
+  min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+/* Photo row */
 .mphr{
-  display:flex;align-items:center;gap:14px;margin-bottom:16px;
-  padding:12px 14px;background:var(--bg);
+  display:flex;align-items:center;gap:12px;margin-bottom:14px;
+  padding:11px 13px;background:var(--bg);
   border:1.5px dashed var(--card-border);border-radius:12px;
 }
 .mphr-preview{
-  width:62px;height:62px;border-radius:50%;border:2.5px solid var(--card-border);
+  width:58px;height:58px;border-radius:50%;border:2.5px solid var(--card-border);
   overflow:hidden;background:#fff;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--card-border);
+  display:flex;align-items:center;justify-content:center;font-size:1.7rem;color:var(--card-border);
 }
 .mphr-preview img{width:100%;height:100%;object-fit:cover;display:none}
 .mphr-info{flex:1;min-width:0}
-.mphr-info strong{font-size:.78rem;color:var(--text);display:block;margin-bottom:5px}
+.mphr-info strong{font-size:.76rem;color:var(--text);display:block;margin-bottom:4px}
 .mphr-pick{
   display:inline-block;position:relative;cursor:pointer;
   background:var(--accent);color:#fff;border-radius:8px;
-  padding:5px 12px;font-size:.74rem;font-weight:600;overflow:hidden;
+  padding:6px 12px;font-size:.73rem;font-weight:600;overflow:hidden;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
 }
-.mphr-pick input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
-.mphr-hint{font-size:.67rem;color:var(--text-muted);display:block;margin-top:4px}
-.mphr-clear{font-size:.7rem;color:var(--danger);cursor:pointer;background:none;border:none;margin-top:3px;display:none;padding:0}
-
-.form-row{margin-bottom:13px}
-.form-row label{display:block;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:5px}
+.mphr-pick input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;width:100%;height:100%}
+.mphr-hint{font-size:.65rem;color:var(--text-muted);display:block;margin-top:3px}
+.mphr-clear{font-size:.68rem;color:var(--danger);cursor:pointer;background:none;border:none;margin-top:2px;display:none;padding:0;touch-action:manipulation}
+/* Prevent iOS zoom on inputs — must be >= 16px font-size */
+.form-row{margin-bottom:12px}
+.form-row label{display:block;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px}
 .form-row label .req{color:var(--accent)}
 .form-row input,.form-row textarea{
   width:100%;border:1.5px solid var(--card-border);border-radius:9px;
-  padding:8px 11px;font-size:.88rem;color:var(--text);
-  background:var(--bg);transition:border-color .15s;font-family:inherit;
+  padding:9px 11px;
+  font-size:16px; /* ← 16px prevents iOS auto-zoom */
+  color:var(--text);background:var(--bg);font-family:inherit;
+  -webkit-appearance:none;appearance:none;
 }
 .form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--accent)}
-.form-row textarea{min-height:68px;resize:vertical}
-.form-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.modal-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
-.modal-btn{border:none;border-radius:10px;padding:9px 20px;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .15s}
+.form-row textarea{min-height:64px;resize:vertical;font-size:16px}
+.form-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:400px){.form-two{grid-template-columns:1fr}}
+.modal-actions{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
+.modal-btn{
+  border:none;border-radius:10px;padding:10px 20px;font-size:.84rem;font-weight:600;
+  cursor:pointer;-webkit-appearance:none;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.modal-btn:active{opacity:.8}
 .modal-btn.save{background:var(--accent);color:#fff}
-.modal-btn.save:hover{background:var(--accent-h)}
 .modal-btn.cancel{background:var(--card-border);color:var(--text)}
-.modal-btn.cancel:hover{background:#d5ccc0}
 
 /* ── Crop Modal ─────────────────────────────────────────────── */
 #crop-overlay{
-  position:fixed;inset:0;z-index:300;
-  background:rgba(0,0,0,.82);
+  position:fixed;inset:0;z-index:350;
+  background:rgba(0,0,0,.85);
   display:none;align-items:center;justify-content:center;
-  backdrop-filter:blur(6px);padding:20px;
+  backdrop-filter:blur(6px);padding:16px;
 }
 #crop-overlay.open{display:flex}
+@media(max-width:600px){
+  #crop-overlay{padding:0;align-items:flex-end}
+}
 .crop-modal{
-  background:var(--card);border-radius:18px;padding:24px;
-  width:400px;max-width:100%;
+  background:var(--card);border-radius:18px;padding:20px;
+  width:380px;max-width:100%;
   box-shadow:0 24px 60px rgba(0,0,0,.5);
   animation:popIn .2s ease;
 }
-.crop-modal h2{font-family:Georgia,serif;font-size:1.05rem;margin-bottom:14px;color:var(--text)}
+@media(max-width:600px){
+  .crop-modal{
+    width:100%;border-radius:22px 22px 0 0;
+    padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+  }
+}
+.crop-modal h2{font-family:Georgia,serif;font-size:1rem;margin-bottom:12px;color:var(--text)}
 .crop-stage{
   width:100%;padding-bottom:100%;position:relative;
-  background:#1a1a1a;border-radius:12px;overflow:hidden;cursor:move;
-  touch-action:none;
+  background:#1a1a1a;border-radius:12px;overflow:hidden;
+  cursor:move;touch-action:none;
 }
 .crop-stage canvas{position:absolute;top:0;left:0;width:100%;height:100%}
-/* Circle overlay */
 .crop-circle-mask{
   position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(circle 46% at 50% 50%, transparent 46%, rgba(0,0,0,.55) 46.5%);
+  background:radial-gradient(circle 46% at 50% 50%,transparent 46%,rgba(0,0,0,.55) 46.5%);
   border-radius:12px;
 }
-.crop-controls{margin-top:14px}
-.crop-controls label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);display:block;margin-bottom:6px}
-#crop-zoom-slider{width:100%;accent-color:var(--accent);cursor:pointer}
-.crop-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.crop-controls{margin-top:12px}
+.crop-controls label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);display:block;margin-bottom:5px}
+#crop-zoom-slider{width:100%;accent-color:var(--accent);cursor:pointer;height:24px}
+.crop-hint{font-size:.7rem;color:var(--text-muted);text-align:center;margin-top:7px}
+.crop-actions{display:flex;gap:10px;margin-top:14px;justify-content:flex-end}
 
 /* ── Toast ──────────────────────────────────────────────────── */
 #toast{
-  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);
-  background:var(--text);color:#fff;padding:10px 22px;border-radius:30px;
-  font-size:.83rem;z-index:400;
-  transition:transform .3s ease,opacity .3s ease;pointer-events:none;opacity:0;
+  position:fixed;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
+  left:50%;transform:translateX(-50%) translateY(30px);
+  background:rgba(61,43,31,.92);color:#fff;
+  padding:10px 22px;border-radius:30px;
+  font-size:.82rem;z-index:500;
+  transition:transform .28s ease,opacity .28s ease;
+  pointer-events:none;opacity:0;white-space:nowrap;
+  max-width:calc(100vw - 32px);text-align:center;
 }
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
-/* ── Legend ─────────────────────────────────────────────────── */
-#legend{
-  position:fixed;bottom:24px;left:24px;z-index:100;
-  background:var(--card);border:1px solid var(--card-border);
-  border-radius:10px;padding:10px 14px;
-  font-size:.72rem;color:var(--text-muted);
-  box-shadow:0 2px 10px var(--shadow);
-}
-.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.legend-item:last-child{margin-bottom:0}
-.legend-line{width:32px;height:2px}
-.legend-line.child{background:var(--line-child)}
-.legend-line.spouse{background:transparent;border-top:2px dashed var(--line-spouse);height:0}
-
 /* ── Scrollbar ──────────────────────────────────────────────── */
-::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:4px}
 </style>
@@ -284,13 +384,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 
 <!-- Top Bar -->
 <header id="topbar">
-  <h1>🌳 Family Heritage Tree</h1>
-  <button class="tb-btn green" id="btn-add-root">+ Root Person</button>
-  <button class="tb-btn" id="btn-center">⌖ Centre</button>
-  <button class="tb-btn" id="btn-export">⬇ Export JSON</button>
+  <h1>🌳 Heritage</h1>
+  <button class="tb-btn green" id="btn-add-root">+ Root</button>
+  <button class="tb-btn" id="btn-center">⌖ Fit</button>
+  <button class="tb-btn" id="btn-export">⬇ Export</button>
   <button class="tb-btn" id="btn-import-wrap" style="position:relative">
-    ⬆ Import JSON
-    <input type="file" id="btn-import" accept=".json" />
+    ⬆ Import
+    <input type="file" id="btn-import" accept=".json"/>
   </button>
   <button class="tb-btn danger" id="btn-reset">↺ Reset</button>
 </header>
@@ -302,27 +402,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);
   </div>
 </div>
 
-<!-- Zoom -->
+<!-- Zoom Controls -->
 <div id="zoom-controls">
-  <button class="zoom-btn" id="btn-zoom-in">+</button>
-  <button class="zoom-btn" id="btn-zoom-out">−</button>
-  <button class="zoom-btn" id="btn-zoom-fit" style="font-size:.72rem">Fit</button>
+  <button class="zoom-btn" id="btn-zoom-in" aria-label="Zoom in">+</button>
+  <div id="zoom-label">100%</div>
+  <button class="zoom-btn" id="btn-zoom-out" aria-label="Zoom out">−</button>
 </div>
+
+<!-- Pinch hint -->
+<div id="pinch-hint">🤏 Pinch to zoom</div>
 
 <!-- Legend -->
 <div id="legend">
-  <div class="legend-item"><div class="legend-line child"></div> Parent → Child</div>
-  <div class="legend-item"><div class="legend-line spouse"></div> Spouse</div>
+  <div class="legend-item"><div class="legend-line child"></div>Parent → Child</div>
+  <div class="legend-item"><div class="legend-line spouse"></div>Spouse</div>
 </div>
 
 <!-- Detail Panel -->
 <div id="detail-panel">
-  <button id="dp-close">✕</button>
+  <button id="dp-close" aria-label="Close">✕</button>
   <div class="dp-header">
-    <div class="dp-photo" id="dp-photo-wrap" title="Click to change photo">
-      <input type="file" id="dp-photo-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+    <div class="dp-photo" id="dp-photo-wrap" title="Tap to change photo">
+      <input type="file" id="dp-photo-input" accept=".jpg,.jpeg,.png,image/jpeg,image/png"/>
       <span id="dp-photo-ph">👤</span>
-      <img id="dp-photo-img" src="" alt="" style="display:none" />
+      <img id="dp-photo-img" src="" alt="" style="display:none"/>
       <div class="dp-photo-badge">📷</div>
     </div>
     <div class="dp-name-block">
@@ -352,64 +455,60 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 <!-- Add/Edit Person Modal -->
 <div id="modal-overlay">
   <div class="modal">
-    <button id="modal-close">✕</button>
+    <button id="modal-close" aria-label="Close">✕</button>
     <h2 id="modal-title">Add Person</h2>
-
-    <!-- Photo picker row -->
     <div class="mphr">
       <div class="mphr-preview" id="mphr-preview">
         <span id="mphr-icon">👤</span>
-        <img id="mphr-img" alt="preview" />
+        <img id="mphr-img" alt="preview"/>
       </div>
       <div class="mphr-info">
         <strong>Profile Photo <span style="font-weight:400;color:var(--text-muted)">(optional)</span></strong>
-        <label class="mphr-pick">
-          📁 Choose Photo
-          <input type="file" id="f-photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+        <label class="mphr-pick">📁 Choose Photo
+          <input type="file" id="f-photo" accept=".jpg,.jpeg,.png,image/jpeg,image/png"/>
         </label>
-        <button class="mphr-clear" id="mphr-clear">✕ Remove photo</button>
-        <span class="mphr-hint" id="mphr-hint">JPG, JPEG or PNG · max 5 MB</span>
+        <button class="mphr-clear" id="mphr-clear">✕ Remove</button>
+        <span class="mphr-hint" id="mphr-hint">JPG or PNG · max 5 MB</span>
       </div>
     </div>
-
     <div class="form-two">
       <div class="form-row">
         <label>First Name <span class="req">*</span></label>
-        <input id="f-firstname" placeholder="e.g. James" />
+        <input id="f-firstname" placeholder="e.g. James" autocomplete="given-name"/>
       </div>
       <div class="form-row">
         <label>Last Name</label>
-        <input id="f-lastname" placeholder="e.g. Anderson" />
+        <input id="f-lastname" placeholder="e.g. Anderson" autocomplete="family-name"/>
       </div>
     </div>
     <div class="form-two">
       <div class="form-row">
         <label>Birth Year</label>
-        <input id="f-birth" placeholder="e.g. 1895" type="number" min="1000" max="2100" />
+        <input id="f-birth" placeholder="e.g. 1895" type="number" inputmode="numeric" min="1000" max="2100"/>
       </div>
       <div class="form-row">
         <label>Death Year</label>
-        <input id="f-death" placeholder="blank if living" type="number" min="1000" max="2100" />
+        <input id="f-death" placeholder="blank if living" type="number" inputmode="numeric" min="1000" max="2100"/>
       </div>
     </div>
     <div class="form-two">
       <div class="form-row">
         <label>Place of Birth</label>
-        <input id="f-birthplace" placeholder="e.g. Dublin, Ireland" />
+        <input id="f-birthplace" placeholder="e.g. Dublin, Ireland" autocomplete="off"/>
       </div>
       <div class="form-row">
         <label>Place of Death</label>
-        <input id="f-deathplace" placeholder="e.g. London, UK" />
+        <input id="f-deathplace" placeholder="e.g. London, UK" autocomplete="off"/>
       </div>
     </div>
     <div class="form-two">
       <div class="form-row">
         <label>Occupation</label>
-        <input id="f-occupation" placeholder="e.g. Farmer" />
+        <input id="f-occupation" placeholder="e.g. Farmer" autocomplete="off"/>
       </div>
       <div class="form-row">
         <label>Nationality</label>
-        <input id="f-nationality" placeholder="e.g. Irish" />
+        <input id="f-nationality" placeholder="e.g. Irish" autocomplete="off"/>
       </div>
     </div>
     <div class="form-row">
@@ -418,7 +517,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);
     </div>
     <div class="form-row">
       <label>Notes</label>
-      <input id="f-notes" placeholder="Any extra notes..." />
+      <input id="f-notes" placeholder="Any extra notes..." autocomplete="off"/>
     </div>
     <div class="modal-actions">
       <button class="modal-btn cancel" id="modal-cancel">Cancel</button>
@@ -437,14 +536,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);
     </div>
     <div class="crop-controls">
       <label>Zoom</label>
-      <input type="range" id="crop-zoom-slider" min="100" max="300" value="100" step="1" />
+      <input type="range" id="crop-zoom-slider" min="100" max="300" value="100" step="1"/>
     </div>
-    <p style="font-size:.72rem;color:var(--text-muted);margin-top:8px;text-align:center">
-      Drag the image to reposition · Scroll or use slider to zoom
-    </p>
+    <p class="crop-hint">Drag to reposition · Pinch or slider to zoom</p>
     <div class="crop-actions">
       <button class="modal-btn cancel" id="crop-cancel">Cancel</button>
-      <button class="modal-btn save" id="crop-confirm">✓ Use This Photo</button>
+      <button class="modal-btn save" id="crop-confirm">✓ Use Photo</button>
     </div>
   </div>
 </div>
@@ -454,83 +551,48 @@ html,body{height:100%;background:var(--bg);color:var(--text);
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
-   CONSTANTS & STORAGE KEY
+   CONSTANTS
 ═══════════════════════════════════════════════════════════════ */
-const STORAGE_KEY = 'familyTreeData_v6';
-const CARD_W = 170, CARD_H = 222, COL_GAP = 58, ROW_GAP = 112, SPOUSE_GAP = 26;
+const STORAGE_KEY='familyTreeData_v7';
+const CARD_W=170,CARD_H=222,COL_GAP=58,ROW_GAP=112,SPOUSE_GAP=26;
 
 /* ═══════════════════════════════════════════════════════════════
-   DEFAULT SEED DATA  (Great-Grandfather + Wife + 7 children)
+   DEFAULT DATA
 ═══════════════════════════════════════════════════════════════ */
-const DEFAULT_DATA = {
-  roots: ['p1','p2'],
-  people: {
+const DEFAULT_DATA={
+  roots:['p1','p2'],
+  people:{
     'p1':{id:'p1',firstName:'William',lastName:'Harrison',birth:1878,death:1955,
       birthplace:'County Mayo, Ireland',deathplace:'Chicago, USA',
       occupation:'Railroad Worker & Foreman',nationality:'Irish-American',
-      bio:'William emigrated from Ireland in 1899, arriving at Ellis Island with little more than the clothes on his back. He found work on the expanding railroad network and rose to become a respected foreman. Known for his booming laugh and fierce loyalty to family.',
-      notes:'Family patriarch. Emigrated 1899. Known as "Big Bill".',
+      bio:'William emigrated from Ireland in 1899, arriving at Ellis Island with little more than the clothes on his back. He found work on the expanding railroad network and rose to become a respected foreman.',
+      notes:'Family patriarch. Known as "Big Bill".',
       photo:null,generation:0,spouses:['p2'],children:['p3','p4','p5','p6','p7','p8','p9']},
     'p2':{id:'p2',firstName:'Rose',lastName:'Callahan',birth:1882,death:1962,
       birthplace:'County Galway, Ireland',deathplace:'Chicago, USA',
       occupation:'Homemaker & Midwife',nationality:'Irish-American',
-      bio:'Rose came to America in 1902 and met William at a church social in Chicago. She was the heart of the family, raising seven children while also assisting as an informal midwife to the neighbourhood. Her soda bread recipe is still made by the family today.',
-      notes:'Married William Harrison in 1903. Beloved grandmother to 19 grandchildren.',
-      photo:null,generation:0,spouses:['p1'],children:['p3','p4','p5','p6','p7','p8','p9']},
-    'p3':{id:'p3',firstName:'Patrick',lastName:'Harrison',birth:1904,death:1968,
-      birthplace:'Chicago, USA',deathplace:'Chicago, USA',
-      occupation:'Police Officer',nationality:'American',
-      bio:'Patrick, the eldest child, followed a path of public service, joining the Chicago Police Department in 1926. He served for 30 years and was known as an honest and fair officer in a tough era.',
-      notes:'Eldest child. 30-year veteran of the CPD. Medal of Commendation 1944.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p4':{id:'p4',firstName:'Mary',lastName:'Harrison',birth:1906,death:1998,
-      birthplace:'Chicago, USA',deathplace:'Boston, USA',
-      occupation:'Schoolteacher',nationality:'American',
-      bio:'Mary had a gift for learning and became one of the first women in her family to graduate from college. She taught primary school for 40 years in Boston after marrying and moving there in 1930.',
-      notes:'Taught at St. Brendan\'s Elementary 1930–1970. Loved poetry.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p5':{id:'p5',firstName:'Thomas',lastName:'Harrison',birth:1908,death:1944,
-      birthplace:'Chicago, USA',deathplace:'Normandy, France',
-      occupation:'US Army Sergeant',nationality:'American',
-      bio:'Thomas served with distinction in World War II. He was killed in action during the Normandy landings on 6 June 1944. He is remembered as a hero and is buried at the Normandy American Cemetery.',
-      notes:'Killed in action D-Day, June 6 1944. Posthumously awarded the Bronze Star.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p6':{id:'p6',firstName:'Catherine',lastName:'Harrison',birth:1910,death:2005,
-      birthplace:'Chicago, USA',deathplace:'Miami, USA',
-      occupation:'Nurse',nationality:'American',
-      bio:'Catherine trained as a nurse during the Great Depression when few women worked outside the home. She served as a military nurse in the Pacific theatre during WWII and later established a nursing school in Miami.',
-      notes:'Military nurse 1942–1946. Founded the Coral Gables Nursing Institute.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p7':{id:'p7',firstName:'James',lastName:'Harrison',birth:1913,death:1989,
-      birthplace:'Chicago, USA',deathplace:'Detroit, USA',
-      occupation:'Auto Engineer',nationality:'American',
-      bio:'James was mechanically gifted from boyhood and found his calling in Detroit\'s booming auto industry. He worked as an engineer for Ford for over 30 years, contributing to the design of several iconic post-war models.',
-      notes:'Held 3 patents in automotive engineering. Worked at Ford 1935–1967.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p8':{id:'p8',firstName:'Brigid',lastName:'Harrison',birth:1916,death:null,
-      birthplace:'Chicago, USA',deathplace:null,
-      occupation:'Painter & Art Restorer',nationality:'American',
-      bio:'Brigid showed artistic talent from a young age. She studied fine art in Chicago and later in Paris, becoming a skilled oil painter and art restorer who worked with several major museums.',
-      notes:'Still living (110). Studied in Paris 1938. Exhibited at the Art Institute of Chicago.',
-      photo:null,generation:1,spouses:[],children:[]},
-    'p9':{id:'p9',firstName:'Joseph',lastName:'Harrison',birth:1920,death:1991,
-      birthplace:'Chicago, USA',deathplace:'Los Angeles, USA',
-      occupation:'Jazz Musician & Bandleader',nationality:'American',
-      bio:'Joseph, the youngest, inherited his father\'s loud laugh and his mother\'s warmth. He discovered jazz as a teenager and went on to lead his own big band in Los Angeles through the 1950s and 60s, recording four studio albums.',
-      notes:'Youngest child. Recorded 4 albums. Performed at the Hollywood Bowl 1959.',
-      photo:null,generation:1,spouses:[],children:[]}
+      bio:'Rose came to America in 1902 and met William at a church social in Chicago. She raised seven children while also assisting as an informal midwife to the neighbourhood.',
+      notes:'Married William Harrison in 1903.',
+      photo:null,generation:0,spouses:['p1'],children:[]},
+    'p3':{id:'p3',firstName:'Patrick',lastName:'Harrison',birth:1904,death:1968,birthplace:'Chicago, USA',deathplace:'Chicago, USA',occupation:'Police Officer',nationality:'American',bio:'Patrick joined the Chicago Police Department in 1926, serving for 30 years.',notes:'Eldest child. Medal of Commendation 1944.',photo:null,generation:1,spouses:[],children:[]},
+    'p4':{id:'p4',firstName:'Mary',lastName:'Harrison',birth:1906,death:1998,birthplace:'Chicago, USA',deathplace:'Boston, USA',occupation:'Schoolteacher',nationality:'American',bio:'Mary taught primary school for 40 years in Boston.',notes:'Taught at St. Brendan\'s Elementary 1930–1970.',photo:null,generation:1,spouses:[],children:[]},
+    'p5':{id:'p5',firstName:'Thomas',lastName:'Harrison',birth:1908,death:1944,birthplace:'Chicago, USA',deathplace:'Normandy, France',occupation:'US Army Sergeant',nationality:'American',bio:'Thomas was killed in action during the Normandy landings on 6 June 1944.',notes:'Posthumously awarded the Bronze Star.',photo:null,generation:1,spouses:[],children:[]},
+    'p6':{id:'p6',firstName:'Catherine',lastName:'Harrison',birth:1910,death:2005,birthplace:'Chicago, USA',deathplace:'Miami, USA',occupation:'Nurse',nationality:'American',bio:'Catherine served as a military nurse in the Pacific theatre during WWII.',notes:'Military nurse 1942–1946.',photo:null,generation:1,spouses:[],children:[]},
+    'p7':{id:'p7',firstName:'James',lastName:'Harrison',birth:1913,death:1989,birthplace:'Chicago, USA',deathplace:'Detroit, USA',occupation:'Auto Engineer',nationality:'American',bio:'James worked as an engineer for Ford for over 30 years.',notes:'Held 3 patents in automotive engineering.',photo:null,generation:1,spouses:[],children:[]},
+    'p8':{id:'p8',firstName:'Brigid',lastName:'Harrison',birth:1916,death:null,birthplace:'Chicago, USA',deathplace:null,occupation:'Painter & Art Restorer',nationality:'American',bio:'Brigid studied fine art in Chicago and Paris, becoming a skilled oil painter and art restorer.',notes:'Studied in Paris 1938.',photo:null,generation:1,spouses:[],children:[]},
+    'p9':{id:'p9',firstName:'Joseph',lastName:'Harrison',birth:1920,death:1991,birthplace:'Chicago, USA',deathplace:'Los Angeles, USA',occupation:'Jazz Musician & Bandleader',nationality:'American',bio:'Joseph led his own big band in Los Angeles through the 1950s and 60s.',notes:'Recorded 4 albums. Hollywood Bowl 1959.',photo:null,generation:1,spouses:[],children:[]}
   }
 };
 
 /* ═══════════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════════ */
-let state = {
+let state={
   people:{},roots:[],collapsed:{},nodePositions:{},
+  primarySet:new Set(),spouseOfMap:new Map(),
   nextId:100,selectedId:null,modalMode:null,
   panX:80,panY:80,zoom:1,
 };
-
 async function loadState() {
     try {
         const response = await fetch('family-tree.json');
@@ -554,147 +616,78 @@ async function loadState() {
 }
 function resetToDefault(){
   state.people=JSON.parse(JSON.stringify(DEFAULT_DATA.people));
-  state.roots=[...DEFAULT_DATA.roots];
-  state.nextId=200;state.collapsed={};
+  state.roots=[...DEFAULT_DATA.roots];state.nextId=200;state.collapsed={};
 }
 function saveState(){
-  try{
-    localStorage.setItem(STORAGE_KEY,JSON.stringify({
-      people:state.people,roots:state.roots,
-      nextId:state.nextId,collapsed:state.collapsed
-    }));
-  }catch(e){toast('Storage full — try exporting and clearing old data.');}
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify({people:state.people,roots:state.roots,nextId:state.nextId,collapsed:state.collapsed}));}
+  catch(e){toast('Storage full — export to save your data.');}
 }
 function genId(){return 'p'+(state.nextId++)}
 
 /* ═══════════════════════════════════════════════════════════════
-   TREE LAYOUT
-   
-   KEY DESIGN PRINCIPLE:
-   Every person is either a PRIMARY node or a SPOUSE node.
-   - PRIMARY nodes own their children and drive layout.
-   - SPOUSE nodes are placed to the right of their primary; they
-     NEVER independently draw child lines or drive layout.
-   - state.primarySet  = Set of IDs that are primary anchors.
-   - state.spouseOfMap = Map  spouseId → primaryId
-   This eliminates all duplicate line drawing and overlap.
+   LAYOUT ENGINE
 ═══════════════════════════════════════════════════════════════ */
-
-/* Children owned by a primary person only — from their own array.
-   We do NOT pull children from the spouse's array.
-   When a child is added via modal it goes into the clicked person's
-   children[] only.  If both spouses list the same child we de-dup. */
 function getPrimaryChildren(personId){
-  const p=state.people[personId];
-  if(!p)return[];
-  const seen=new Set();
-  const out=[];
-  (p.children||[]).forEach(id=>{
-    if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}
-  });
-  // Also pull children listed on spouses that aren't already in our list,
-  // so that spouse-added children still appear (de-duped).
+  const p=state.people[personId];if(!p)return[];
+  const seen=new Set();const out=[];
+  (p.children||[]).forEach(id=>{if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}});
   (p.spouses||[]).forEach(sid=>{
-    const sp=state.people[sid];
-    if(!sp)return;
-    (sp.children||[]).forEach(id=>{
-      if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}
-    });
+    const sp=state.people[sid];if(!sp)return;
+    (sp.children||[]).forEach(id=>{if(!seen.has(id)&&state.people[id]){seen.add(id);out.push(id);}});
   });
   return out;
 }
 
-/* Width of one person's full subtree (couple + all descendants) */
-function getUnitWidth(personId, visited=new Set()){
+function getUnitWidth(personId,visited=new Set()){
   if(visited.has(personId))return CARD_W;
   visited.add(personId);
-  const p=state.people[personId];
-  if(!p)return CARD_W;
-
-  // Spouses sit to the right — mark visited so they can't recurse back
+  const p=state.people[personId];if(!p)return CARD_W;
   const mySpouses=(p.spouses||[]).filter(s=>s&&!visited.has(s)&&state.people[s]);
   mySpouses.forEach(s=>visited.add(s));
-  const coupleW=CARD_W + mySpouses.length*(CARD_W+SPOUSE_GAP);
-
+  const coupleW=CARD_W+mySpouses.length*(CARD_W+SPOUSE_GAP);
   if(state.collapsed[personId])return coupleW;
-
-  const children=getPrimaryChildren(personId);
-  if(!children.length)return coupleW;
-
-  const childrenW=children.reduce((sum,cid,i)=>{
-    return sum + getUnitWidth(cid, new Set(visited)) + (i?COL_GAP:0);
-  },0);
-  return Math.max(coupleW, childrenW);
+  const kids=getPrimaryChildren(personId);if(!kids.length)return coupleW;
+  const kidsW=kids.reduce((sum,cid,i)=>sum+getUnitWidth(cid,new Set(visited))+(i?COL_GAP:0),0);
+  return Math.max(coupleW,kidsW);
 }
 
-/* Place one person + their couple + descendants recursively.
-   visited  — global set; prevents any node being placed twice.
-   primarySet / spouseOfMap updated here so renderLines can use them. */
-function layoutTree(personId, x, y, visited, primarySet, spouseOfMap){
+function layoutTree(personId,x,y,visited,primarySet,spouseOfMap){
   if(visited.has(personId))return;
   visited.add(personId);
-
-  const p=state.people[personId];
-  if(!p)return;
-
+  const p=state.people[personId];if(!p)return;
   primarySet.add(personId);
   state.nodePositions[personId]={x,y};
-
-  // Place spouses immediately to the right
-  let sx=x+CARD_W+SPOUSE_GAP;
-  let placedSpouseCount=0;
+  let sx=x+CARD_W+SPOUSE_GAP,placed=0;
   (p.spouses||[]).forEach(sid=>{
     if(!sid||!state.people[sid]||visited.has(sid))return;
-    visited.add(sid);
-    spouseOfMap.set(sid, personId);          // spouse → primary mapping
-    state.nodePositions[sid]={x:sx, y};
-    sx+=CARD_W+SPOUSE_GAP;
-    placedSpouseCount++;
+    visited.add(sid);spouseOfMap.set(sid,personId);
+    state.nodePositions[sid]={x:sx,y};sx+=CARD_W+SPOUSE_GAP;placed++;
   });
-
   if(state.collapsed[personId])return;
-
-  const children=getPrimaryChildren(personId);
-  if(!children.length)return;
-
-  // Pre-compute all child widths before placing any of them
-  const childWidths=children.map(cid=>getUnitWidth(cid, new Set(visited)));
-  const totalW=childWidths.reduce((s,w,i)=>s+w+(i?COL_GAP:0),0);
-
-  // Mid-point of the couple unit
-  const coupleW=CARD_W + placedSpouseCount*(CARD_W+SPOUSE_GAP);
-  const midX=x + coupleW/2;
-  let cx=midX - totalW/2;
+  const kids=getPrimaryChildren(personId);if(!kids.length)return;
+  const kw=kids.map(cid=>getUnitWidth(cid,new Set(visited)));
+  const totalW=kw.reduce((s,w,i)=>s+w+(i?COL_GAP:0),0);
+  const coupleW=CARD_W+placed*(CARD_W+SPOUSE_GAP);
+  const midX=x+coupleW/2;
+  let cx=midX-totalW/2;
   const cy=y+CARD_H+ROW_GAP;
-
-  children.forEach((cid,i)=>{
-    layoutTree(cid, cx, cy, visited, primarySet, spouseOfMap);
-    cx+=childWidths[i]+COL_GAP;
-  });
+  kids.forEach((cid,i)=>{layoutTree(cid,cx,cy,visited,primarySet,spouseOfMap);cx+=kw[i]+COL_GAP;});
 }
 
 function computeLayout(){
   state.nodePositions={};
-  state.primarySet   = new Set();   // IDs that are layout primaries
-  state.spouseOfMap  = new Map();   // spouseId -> primaryId
-
-  // Determine primary root anchors.
-  // Iterate state.roots in order; first occurrence wins as primary.
-  // Spouses of already-claimed primaries are skipped.
-  const covered=new Set();
-  const primaryRoots=[];
+  state.primarySet=new Set();state.spouseOfMap=new Map();
+  const covered=new Set();const primaryRoots=[];
   state.roots.forEach(id=>{
     if(!state.people[id]||covered.has(id))return;
     primaryRoots.push(id);
     (state.people[id].spouses||[]).forEach(sid=>covered.add(sid));
   });
-
-  const globalVisited=new Set();
-  let sx=80;
+  const visited=new Set();let sx=80;
   primaryRoots.forEach(rid=>{
-    const w=getUnitWidth(rid, new Set());
-    layoutTree(rid, sx, 60, globalVisited, state.primarySet, state.spouseOfMap);
-    sx+=Math.max(w, CARD_W)+COL_GAP*2;
+    const w=getUnitWidth(rid,new Set());
+    layoutTree(rid,sx,60,visited,state.primarySet,state.spouseOfMap);
+    sx+=Math.max(w,CARD_W)+COL_GAP*2;
   });
 }
 
@@ -703,40 +696,39 @@ function computeLayout(){
 ═══════════════════════════════════════════════════════════════ */
 const canvas=document.getElementById('canvas');
 const svgEl=document.getElementById('svg-lines');
+const panel=document.getElementById('detail-panel');
 
-function dateStr(p){
-  const b=p.birth||'?';
-  const d=p.death?p.death:(p.birth?'present':'?');
-  return `${b} – ${d}`;
-}
-function photoHTML(p,size=70){
-  if(p.photo)return`<img src="${p.photo}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
+function dateStr(p){const b=p.birth||'?';const d=p.death?p.death:(p.birth?'present':'?');return`${b} – ${d}`}
+function photoHTML(p,size=68){
+  if(p.photo)return`<img src="${p.photo}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;pointer-events:none">`;
   return`<span class="photo-placeholder" style="font-size:${size*.38}px">👤</span>`;
 }
 const GEN_LABELS=['Great-Grandparent','Grandparent','Parent','Yourself','Child','Grandchild','Great-Grandchild'];
 function genLabel(g){return GEN_LABELS[g]??`Generation ${g+1}`}
 
-function renderAll(){
-  computeLayout();
-  renderCards();
-  renderLines();
-}
+function renderAll(){computeLayout();renderCards();renderLines();}
 
 function renderCards(){
   document.querySelectorAll('.person-node').forEach(el=>el.remove());
+  // Clamp negative positions
+  const allPos=Object.values(state.nodePositions);
+  if(!allPos.length)return;
+  const minX=Math.min(...allPos.map(p=>p.x));
+  const minY=Math.min(...allPos.map(p=>p.y));
+  const offX=minX<40?40-minX:0;
+  const offY=minY<60?60-minY:0;
+  if(offX||offY)Object.values(state.nodePositions).forEach(p=>{p.x+=offX;p.y+=offY;});
+
   Object.entries(state.nodePositions).forEach(([id,pos])=>{
-    const p=state.people[id];
-    if(!p)return;
-    const node=document.createElement('div');
-    node.className='person-node';
-    node.id=`node-${id}`;
-    node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:${CARD_W}px`;
-    const sel=state.selectedId===id;
-    // Only the PRIMARY of a couple shows the collapse button and owns children
-    const isPrimary=state.primarySet&&state.primarySet.has(id);
-    const hasKids=isPrimary && getPrimaryChildren(id).length>0;
+    const p=state.people[id];if(!p)return;
+    const isPrimary=state.primarySet.has(id);
+    const hasKids=isPrimary&&getPrimaryChildren(id).length>0;
     const col=state.collapsed[id];
     const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
+    const sel=state.selectedId===id;
+    const node=document.createElement('div');
+    node.className='person-node';node.id=`node-${id}`;
+    node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:${CARD_W}px`;
     node.innerHTML=`
       <div class="person-card${sel?' selected':''}" data-id="${id}">
         ${p.generation===0?'<div class="gen-badge">Root Ancestor</div>':''}
@@ -755,126 +747,58 @@ function renderCards(){
 
 function renderLines(){
   svgEl.innerHTML='';
-  const allPos=Object.values(state.nodePositions);
-  if(!allPos.length)return;
-
-  // SVG must cover all positioned nodes (including negative-x nodes shifted by pan)
-  const minX=Math.min(...allPos.map(p=>p.x));
-  const minY=Math.min(...allPos.map(p=>p.y));
+  const allPos=Object.values(state.nodePositions);if(!allPos.length)return;
   const maxX=Math.max(...allPos.map(p=>p.x))+CARD_W+200;
   const maxY=Math.max(...allPos.map(p=>p.y))+CARD_H+200;
-  // Offset SVG if nodes went negative
-  const offX=minX<0?Math.abs(minX)+40:0;
-  const offY=minY<0?Math.abs(minY)+40:0;
-  if(offX||offY){
-    // Shift all node positions so nothing is negative
-    Object.keys(state.nodePositions).forEach(id=>{
-      state.nodePositions[id].x+=offX;
-      state.nodePositions[id].y+=offY;
-    });
-    // Re-render cards with corrected positions
-    document.querySelectorAll('.person-node').forEach(el=>{
-      const id=el.id.replace('node-','');
-      const pos=state.nodePositions[id];
-      if(pos){el.style.left=pos.x+'px';el.style.top=pos.y+'px';}
-    });
-  }
-
-  svgEl.setAttribute('width',  maxX+offX);
-  svgEl.setAttribute('height', maxY+offY);
-
+  svgEl.setAttribute('width',maxX);svgEl.setAttribute('height',maxY);
   const doneSpouse=new Set();
-
-  // Only iterate PRIMARY nodes for drawing lines.
-  // Spouses never draw their own child lines — eliminates all merging/overlap.
-  const primaries = state.primarySet
-    ? [...state.primarySet]
-    : Object.keys(state.nodePositions);
-
+  const primaries=[...state.primarySet];
   primaries.forEach(pid=>{
-    const p=state.people[pid];
-    const pp=state.nodePositions[pid];
-    if(!p||!pp)return;
-
-    // ── Spouse connector lines (dashed gold) ──────────────────
-    // Draw from primary → each placed spouse
+    const p=state.people[pid];const pp=state.nodePositions[pid];if(!p||!pp)return;
+    // Spouse lines
     (p.spouses||[]).forEach(sid=>{
       const key=[pid,sid].sort().join('-');
-      if(doneSpouse.has(key))return;
-      doneSpouse.add(key);
-      const sp=state.nodePositions[sid];
-      if(!sp)return;
-      // Always draw left→right: find which is leftmost
-      const leftPos  = pp.x < sp.x ? pp : sp;
-      const rightPos = pp.x < sp.x ? sp : pp;
-      const x1=leftPos.x+CARD_W, y1=leftPos.y+CARD_H/2;
-      const x2=rightPos.x,       y2=rightPos.y+CARD_H/2;
-      svgEl.appendChild(mkLine(x1,y1,x2,y2,'#C9A84C',true));
+      if(doneSpouse.has(key))return;doneSpouse.add(key);
+      const sp=state.nodePositions[sid];if(!sp)return;
+      const lp=pp.x<sp.x?pp:sp,rp=pp.x<sp.x?sp:pp;
+      svgEl.appendChild(mkLine(lp.x+CARD_W,lp.y+CARD_H/2,rp.x,rp.y+CARD_H/2,'#C9A84C',true));
     });
-
-    // ── Child connector lines (solid, elbow) ──────────────────
-    // ONLY from primary nodes, NEVER from spouses
+    // Child lines — only from primary
     if(state.collapsed[pid])return;
-    const kids=getPrimaryChildren(pid);
-    if(!kids.length)return;
-
-    // Mid-point of the couple unit (primary + all placed spouses)
-    const placedSpousePositions=(p.spouses||[])
-      .map(s=>state.nodePositions[s]).filter(Boolean);
-    const allX=[pp.x, ...placedSpousePositions.map(s=>s.x)];
-    const coupleLeft =Math.min(...allX);
-    const coupleRight=Math.max(...allX)+CARD_W;
-    const midX=(coupleLeft+coupleRight)/2;
+    const kids=getPrimaryChildren(pid);if(!kids.length)return;
+    const spPoses=(p.spouses||[]).map(s=>state.nodePositions[s]).filter(Boolean);
+    const allX=[pp.x,...spPoses.map(s=>s.x)];
+    const midX=(Math.min(...allX)+Math.max(...allX)+CARD_W)/2;
     const botY=pp.y+CARD_H;
-
-    // Collect valid child positions
     const validKids=kids.map(cid=>({cid,cp:state.nodePositions[cid]})).filter(({cp})=>cp);
     if(!validKids.length)return;
-
     const halfY=botY+ROW_GAP/2;
-
-    // Single vertical down from parent mid, then horizontal bar, then drops to each child
     if(validKids.length===1){
-      const {cp}=validKids[0];
-      const cMid=cp.x+CARD_W/2;
+      const{cp}=validKids[0];const cMid=cp.x+CARD_W/2;
       svgEl.appendChild(mkPath(`M${midX} ${botY}L${midX} ${halfY}L${cMid} ${halfY}L${cMid} ${cp.y}`,'#8A7060'));
     } else {
-      // Vertical stem down from parent
       svgEl.appendChild(mkPath(`M${midX} ${botY}L${midX} ${halfY}`,'#8A7060'));
-      // Horizontal bar spanning all children
-      const leftChildMid =validKids[0].cp.x+CARD_W/2;
-      const rightChildMid=validKids[validKids.length-1].cp.x+CARD_W/2;
-      svgEl.appendChild(mkPath(`M${leftChildMid} ${halfY}L${rightChildMid} ${halfY}`,'#8A7060'));
-      // Vertical drop to each child
-      validKids.forEach(({cp})=>{
-        const cMid=cp.x+CARD_W/2;
-        svgEl.appendChild(mkPath(`M${cMid} ${halfY}L${cMid} ${cp.y}`,'#8A7060'));
-      });
+      const l=validKids[0].cp.x+CARD_W/2,r=validKids[validKids.length-1].cp.x+CARD_W/2;
+      svgEl.appendChild(mkPath(`M${l} ${halfY}L${r} ${halfY}`,'#8A7060'));
+      validKids.forEach(({cp})=>{const cMid=cp.x+CARD_W/2;svgEl.appendChild(mkPath(`M${cMid} ${halfY}L${cMid} ${cp.y}`,'#8A7060'));});
     }
   });
 }
-
-function mkLine(x1,y1,x2,y2,color,dashed=false){
+function mkLine(x1,y1,x2,y2,c,d=false){
   const l=document.createElementNS('http://www.w3.org/2000/svg','line');
-  l.setAttribute('x1',x1);l.setAttribute('y1',y1);
-  l.setAttribute('x2',x2);l.setAttribute('y2',y2);
-  l.setAttribute('stroke',color);l.setAttribute('stroke-width','2');
-  if(dashed)l.setAttribute('stroke-dasharray','6 4');
-  return l;
+  l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);
+  l.setAttribute('stroke',c);l.setAttribute('stroke-width','2');
+  if(d)l.setAttribute('stroke-dasharray','6 4');return l;
 }
-function mkPath(d,color){
+function mkPath(d,c){
   const p=document.createElementNS('http://www.w3.org/2000/svg','path');
-  p.setAttribute('d',d);p.setAttribute('stroke',color);
-  p.setAttribute('fill','none');p.setAttribute('stroke-width','2');
-  p.setAttribute('stroke-linecap','round');
-  return p;
+  p.setAttribute('d',d);p.setAttribute('stroke',c);p.setAttribute('fill','none');
+  p.setAttribute('stroke-width','2');p.setAttribute('stroke-linecap','round');return p;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    DETAIL PANEL
 ═══════════════════════════════════════════════════════════════ */
-const panel=document.getElementById('detail-panel');
-
 function openDetailPanel(id){
   state.selectedId=id;
   const p=state.people[id];if(!p)return;
@@ -889,311 +813,241 @@ function openDetailPanel(id){
   document.getElementById('dp-nationality').innerHTML=v(p.nationality);
   document.getElementById('dp-bio').innerHTML=v(p.bio);
   document.getElementById('dp-notes').innerHTML=v(p.notes);
-  const img=document.getElementById('dp-photo-img');
-  const ph=document.getElementById('dp-photo-ph');
+  const img=document.getElementById('dp-photo-img'),ph=document.getElementById('dp-photo-ph');
   if(p.photo){img.src=p.photo;img.style.display='block';ph.style.display='none';}
   else{img.style.display='none';ph.style.display='block';}
+  // Update selected highlight without full re-render
+  document.querySelectorAll('.person-card.selected').forEach(el=>el.classList.remove('selected'));
+  const card=document.querySelector(`.person-card[data-id="${id}"]`);
+  if(card)card.classList.add('selected');
   panel.classList.add('open');
-  renderAll();
 }
 function closeDetailPanel(){
-  panel.classList.remove('open');state.selectedId=null;renderAll();
+  panel.classList.remove('open');
+  // Remove selected highlight
+  document.querySelectorAll('.person-card.selected').forEach(el=>el.classList.remove('selected'));
+  state.selectedId=null;
 }
 
 /* ═══════════════════════════════════════════════════════════════
    CROP ENGINE
 ═══════════════════════════════════════════════════════════════ */
-let cropState={img:null,scale:1,ox:0,oy:0,dragging:false,lx:0,ly:0,resolveCallback:null};
 const cropOverlay=document.getElementById('crop-overlay');
 const cropCanvas=document.getElementById('crop-canvas');
 const cropCtx=cropCanvas.getContext('2d');
 const cropStage=document.getElementById('crop-stage');
 const cropSlider=document.getElementById('crop-zoom-slider');
+let cropState={img:null,scale:1,ox:0,oy:0,dragging:false,lx:0,ly:0,cb:null};
+let cropPinchDist=null;
 
-function openCropModal(imageSrc){
-  return new Promise(resolve=>{
-    cropState.resolveCallback=resolve;
+function openCropModal(src){
+  return new Promise(res=>{
+    cropState.cb=res;
     const img=new Image();
     img.onload=()=>{
       cropState.img=img;
-      // Size canvas to stage dimensions
-      const size=cropStage.clientWidth||320;
-      cropCanvas.width=size;cropCanvas.height=size;
-      // Initial scale: fit image to fill the circle
-      const minDim=Math.min(img.naturalWidth,img.naturalHeight);
-      cropState.scale=size/minDim;
-      // Centre
-      cropState.ox=(size-img.naturalWidth*cropState.scale)/2;
-      cropState.oy=(size-img.naturalHeight*cropState.scale)/2;
-      cropSlider.value=100;
-      drawCrop();
+      const sz=cropStage.clientWidth||300;
+      cropCanvas.width=sz;cropCanvas.height=sz;
+      const minD=Math.min(img.naturalWidth,img.naturalHeight);
+      cropState.scale=sz/minD;
+      cropState.ox=(sz-img.naturalWidth*cropState.scale)/2;
+      cropState.oy=(sz-img.naturalHeight*cropState.scale)/2;
+      cropSlider.value=100;drawCrop();
       cropOverlay.classList.add('open');
     };
-    img.src=imageSrc;
+    img.src=src;
   });
 }
-
 function drawCrop(){
-  const c=cropCanvas,ctx=cropCtx,img=cropState.img;
-  if(!img)return;
-  ctx.clearRect(0,0,c.width,c.height);
-  ctx.drawImage(img,cropState.ox,cropState.oy,
-    img.naturalWidth*cropState.scale,img.naturalHeight*cropState.scale);
+  const c=cropCanvas,img=cropState.img;if(!img)return;
+  cropCtx.clearRect(0,0,c.width,c.height);
+  cropCtx.drawImage(img,cropState.ox,cropState.oy,img.naturalWidth*cropState.scale,img.naturalHeight*cropState.scale);
 }
-
-function getCroppedDataURL(){
-  const size=cropCanvas.width;
-  const out=document.createElement('canvas');
-  out.width=200;out.height=200;
+function getCroppedURL(){
+  const sz=cropCanvas.width;
+  const out=document.createElement('canvas');out.width=200;out.height=200;
   const ctx=out.getContext('2d');
   ctx.beginPath();ctx.arc(100,100,100,0,Math.PI*2);ctx.clip();
-  // Scale from stage coords to output 200x200
-  const ratio=200/size;
-  ctx.drawImage(cropCanvas,0,0,size,size,0,0,200,200);
-  return out.toDataURL('image/jpeg',0.88);
+  ctx.drawImage(cropCanvas,0,0,sz,sz,0,0,200,200);
+  return out.toDataURL('image/jpeg',.88);
 }
-
-// Slider zoom
+// Slider
 cropSlider.addEventListener('input',()=>{
   const img=cropState.img;if(!img)return;
-  const size=cropCanvas.width;
+  const sz=cropCanvas.width;
   const pct=parseInt(cropSlider.value)/100;
-  const minDim=Math.min(img.naturalWidth,img.naturalHeight);
-  const newScale=(size/minDim)*pct;
-  // Zoom around centre of stage
-  const cx=size/2,cy=size/2;
-  cropState.ox=cx-(cx-cropState.ox)*(newScale/cropState.scale);
-  cropState.oy=cy-(cy-cropState.oy)*(newScale/cropState.scale);
-  cropState.scale=newScale;
-  drawCrop();
+  const minD=Math.min(img.naturalWidth,img.naturalHeight);
+  const ns=(sz/minD)*pct;
+  const cx=sz/2,cy=sz/2;
+  cropState.ox=cx-(cx-cropState.ox)*(ns/cropState.scale);
+  cropState.oy=cy-(cy-cropState.oy)*(ns/cropState.scale);
+  cropState.scale=ns;drawCrop();
 });
-
-// Drag
-cropStage.addEventListener('mousedown',e=>{
-  cropState.dragging=true;
-  cropState.lx=e.clientX;cropState.ly=e.clientY;
-  e.preventDefault();
-});
-window.addEventListener('mousemove',e=>{
-  if(!cropState.dragging)return;
-  cropState.ox+=e.clientX-cropState.lx;
-  cropState.oy+=e.clientY-cropState.ly;
-  cropState.lx=e.clientX;cropState.ly=e.clientY;
-  drawCrop();
-});
-window.addEventListener('mouseup',()=>{cropState.dragging=false});
-
-// Touch drag
+// Mouse drag
+cropStage.addEventListener('mousedown',e=>{cropState.dragging=true;cropState.lx=e.clientX;cropState.ly=e.clientY;e.preventDefault();});
+window.addEventListener('mousemove',e=>{if(!cropState.dragging)return;cropState.ox+=e.clientX-cropState.lx;cropState.oy+=e.clientY-cropState.ly;cropState.lx=e.clientX;cropState.ly=e.clientY;drawCrop();});
+window.addEventListener('mouseup',()=>{cropState.dragging=false;});
+// Touch drag + pinch on crop
 cropStage.addEventListener('touchstart',e=>{
-  const t=e.touches[0];
-  cropState.dragging=true;cropState.lx=t.clientX;cropState.ly=t.clientY;
   e.preventDefault();
+  if(e.touches.length===1){cropState.dragging=true;cropState.lx=e.touches[0].clientX;cropState.ly=e.touches[0].clientY;cropPinchDist=null;}
+  else if(e.touches.length===2){
+    cropState.dragging=false;
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    cropPinchDist=Math.sqrt(dx*dx+dy*dy);
+  }
 },{passive:false});
 cropStage.addEventListener('touchmove',e=>{
-  if(!cropState.dragging)return;
-  const t=e.touches[0];
-  cropState.ox+=t.clientX-cropState.lx;
-  cropState.oy+=t.clientY-cropState.ly;
-  cropState.lx=t.clientX;cropState.ly=t.clientY;
-  drawCrop();e.preventDefault();
-},{passive:false});
-cropStage.addEventListener('touchend',()=>{cropState.dragging=false});
-
-// Scroll zoom on stage
-cropStage.addEventListener('wheel',e=>{
   e.preventDefault();
-  const delta=e.deltaY>0?0.95:1.05;
-  const img=cropState.img;if(!img)return;
-  const rect=cropStage.getBoundingClientRect();
-  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
-  cropState.ox=mx-(mx-cropState.ox)*delta;
-  cropState.oy=my-(my-cropState.oy)*delta;
-  cropState.scale*=delta;
-  cropSlider.value=Math.round((cropState.scale/(cropCanvas.width/Math.min(img.naturalWidth,img.naturalHeight)))*100);
-  drawCrop();
+  if(e.touches.length===1&&cropState.dragging){
+    cropState.ox+=e.touches[0].clientX-cropState.lx;
+    cropState.oy+=e.touches[0].clientY-cropState.ly;
+    cropState.lx=e.touches[0].clientX;cropState.ly=e.touches[0].clientY;drawCrop();
+  } else if(e.touches.length===2&&cropPinchDist){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const newDist=Math.sqrt(dx*dx+dy*dy);
+    const factor=newDist/cropPinchDist;
+    const sz=cropCanvas.width,cx=sz/2,cy=sz/2;
+    const ns=cropState.scale*factor;
+    cropState.ox=cx-(cx-cropState.ox)*factor;
+    cropState.oy=cy-(cy-cropState.oy)*factor;
+    cropState.scale=ns;cropPinchDist=newDist;
+    cropSlider.value=Math.min(300,Math.max(100,Math.round(ns/(cropCanvas.width/Math.min(cropState.img.naturalWidth,cropState.img.naturalHeight))*100)));
+    drawCrop();
+  }
 },{passive:false});
-
+cropStage.addEventListener('touchend',e=>{if(e.touches.length===0){cropState.dragging=false;cropPinchDist=null;}},{passive:false});
+// Scroll zoom on crop
+cropStage.addEventListener('wheel',e=>{
+  e.preventDefault();const d=e.deltaY>0?.95:1.05;const sz=cropCanvas.width;
+  const rect=cropStage.getBoundingClientRect();const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  cropState.ox=mx-(mx-cropState.ox)*d;cropState.oy=my-(my-cropState.oy)*d;cropState.scale*=d;drawCrop();
+},{passive:false});
 document.getElementById('crop-confirm').addEventListener('click',()=>{
-  const dataURL=getCroppedDataURL();
-  cropOverlay.classList.remove('open');
-  if(cropState.resolveCallback)cropState.resolveCallback(dataURL);
-  cropState.resolveCallback=null;
+  const url=getCroppedURL();cropOverlay.classList.remove('open');
+  if(cropState.cb)cropState.cb(url);cropState.cb=null;
 });
 document.getElementById('crop-cancel').addEventListener('click',()=>{
-  cropOverlay.classList.remove('open');
-  if(cropState.resolveCallback)cropState.resolveCallback(null);
-  cropState.resolveCallback=null;
+  cropOverlay.classList.remove('open');if(cropState.cb)cropState.cb(null);cropState.cb=null;
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   MODAL — ADD / EDIT PERSON
+   MODAL — ADD/EDIT PERSON
 ═══════════════════════════════════════════════════════════════ */
 const modalOverlay=document.getElementById('modal-overlay');
 let pendingPhoto=null;
 
-function setModalPhotoPreview(src){
+function setModalPhoto(src){
   pendingPhoto=src;
-  const img=document.getElementById('mphr-img');
-  const icon=document.getElementById('mphr-icon');
-  const clear=document.getElementById('mphr-clear');
-  const hint=document.getElementById('mphr-hint');
-  if(src){
-    img.src=src;img.style.display='block';icon.style.display='none';
-    clear.style.display='inline-block';hint.textContent='Photo ready ✓';
-  } else {
-    img.style.display='none';icon.style.display='block';
-    clear.style.display='none';hint.textContent='JPG, JPEG or PNG · max 5 MB';
-  }
+  const img=document.getElementById('mphr-img'),icon=document.getElementById('mphr-icon');
+  const clr=document.getElementById('mphr-clear'),hint=document.getElementById('mphr-hint');
+  if(src){img.src=src;img.style.display='block';icon.style.display='none';clr.style.display='inline-block';hint.textContent='Photo ready ✓';}
+  else{img.style.display='none';icon.style.display='block';clr.style.display='none';hint.textContent='JPG or PNG · max 5 MB';}
   document.getElementById('f-photo').value='';
 }
-
-function openModal(title,prefill={}){
+function openModal(title,pre={}){
   document.getElementById('modal-title').textContent=title;
   ['firstname','lastname','birth','death','birthplace','deathplace','occupation','nationality','bio','notes']
-    .forEach(k=>{const el=document.getElementById(`f-${k}`);if(el)el.value=prefill[k]??''});
-  setModalPhotoPreview(prefill.photo||null);
+    .forEach(k=>{const el=document.getElementById(`f-${k}`);if(el)el.value=pre[k]??'';});
+  setModalPhoto(pre.photo||null);
   modalOverlay.classList.add('open');
-  setTimeout(()=>{document.getElementById('f-firstname').focus()},50);
+  setTimeout(()=>document.getElementById('f-firstname').focus(),80);
   const m=document.querySelector('.modal');if(m)m.scrollTop=0;
 }
 function closeModal(){modalOverlay.classList.remove('open');pendingPhoto=null;}
 
-// Photo file input inside modal
 document.getElementById('f-photo').addEventListener('change',async e=>{
-  const file=e.target.files[0];
-  if(!file)return;
-  if(!['image/jpeg','image/png'].includes(file.type)){
-    toast('Please choose a JPG, JPEG, or PNG file.');e.target.value='';return;
-  }
-  if(file.size>5*1024*1024){
-    toast('Image must be under 5 MB.');e.target.value='';return;
-  }
+  const file=e.target.files[0];if(!file)return;
+  if(!['image/jpeg','image/png'].includes(file.type)){toast('Please choose JPG or PNG.');e.target.value='';return;}
+  if(file.size>5*1024*1024){toast('Image must be under 5 MB.');e.target.value='';return;}
   const reader=new FileReader();
-  reader.onload=async ev=>{
-    const cropped=await openCropModal(ev.target.result);
-    if(cropped)setModalPhotoPreview(cropped);
-    else e.target.value='';
-  };
+  reader.onload=async ev=>{const c=await openCropModal(ev.target.result);if(c)setModalPhoto(c);else e.target.value='';};
   reader.readAsDataURL(file);
 });
-
-document.getElementById('mphr-clear').addEventListener('click',()=>setModalPhotoPreview(null));
+document.getElementById('mphr-clear').addEventListener('click',()=>setModalPhoto(null));
 
 function getFormData(){
   return{
-    firstName: document.getElementById('f-firstname').value.trim(),
-    lastName:  document.getElementById('f-lastname').value.trim()||null,
-    birth:     parseInt(document.getElementById('f-birth').value)||null,
-    death:     parseInt(document.getElementById('f-death').value)||null,
+    firstName:document.getElementById('f-firstname').value.trim(),
+    lastName:document.getElementById('f-lastname').value.trim()||null,
+    birth:parseInt(document.getElementById('f-birth').value)||null,
+    death:parseInt(document.getElementById('f-death').value)||null,
     birthplace:document.getElementById('f-birthplace').value.trim()||null,
     deathplace:document.getElementById('f-deathplace').value.trim()||null,
     occupation:document.getElementById('f-occupation').value.trim()||null,
     nationality:document.getElementById('f-nationality').value.trim()||null,
-    bio:       document.getElementById('f-bio').value.trim()||null,
-    notes:     document.getElementById('f-notes').value.trim()||null,
-    photo:     pendingPhoto,
+    bio:document.getElementById('f-bio').value.trim()||null,
+    notes:document.getElementById('f-notes').value.trim()||null,
+    photo:pendingPhoto,
   };
 }
-
 function handleModalSave(){
   const data=getFormData();
-  if(!data.firstName){
-    toast('First name is required.');
-    document.getElementById('f-firstname').focus();return;
-  }
+  if(!data.firstName){toast('First name is required.');document.getElementById('f-firstname').focus();return;}
   const mode=state.modalMode;if(!mode)return;
-
   if(mode.type==='edit'){
     const p=state.people[mode.targetId];
-    if(data.photo===null&&p.photo)data.photo=p.photo; // keep existing if none chosen
-    Object.assign(p,data);
-    saveState();renderAll();
+    if(data.photo===null&&p.photo)data.photo=p.photo;
+    Object.assign(p,data);saveState();renderAll();
     if(state.selectedId===mode.targetId)openDetailPanel(mode.targetId);
     toast('Person updated.');
-
   } else if(mode.type==='root'){
-    const id=genId();
-    state.people[id]={id,...data,generation:0,spouses:[],children:[]};
-    state.roots.push(id);
-    saveState();renderAll();
-    toast(`${data.firstName} added as root ancestor.`);
-
+    const id=genId();state.people[id]={id,...data,generation:0,spouses:[],children:[]};
+    state.roots.push(id);saveState();renderAll();toast(`${data.firstName} added.`);
   } else if(mode.type==='child'){
-    const parent=state.people[mode.targetId];
-    const gen=(parent.generation??0)+1;
-    const id=genId();
-    state.people[id]={id,...data,generation:gen,spouses:[],children:[]};
+    const parent=state.people[mode.targetId];const gen=(parent.generation??0)+1;
+    const id=genId();state.people[id]={id,...data,generation:gen,spouses:[],children:[]};
     if(!parent.children.includes(id))parent.children.push(id);
-    saveState();renderAll();
-    toast(`${data.firstName} added as child.`);
-
+    saveState();renderAll();toast(`${data.firstName} added as child.`);
   } else if(mode.type==='spouse'){
-    const person=state.people[mode.targetId];
-    const id=genId();
-    // BUG FIX: spouse gets empty children — shared children handled by getChildren() de-dup
+    const person=state.people[mode.targetId];const id=genId();
     state.people[id]={id,...data,generation:person.generation??0,spouses:[mode.targetId],children:[]};
     if(!person.spouses.includes(id))person.spouses.push(id);
-    // Add spouse as a root only if the primary person is a root
-    if(state.roots.includes(mode.targetId)&&!state.roots.includes(id)){
-      state.roots.push(id);
-    }
-    saveState();renderAll();
-    toast(`${data.firstName} added as spouse.`);
+    if(state.roots.includes(mode.targetId)&&!state.roots.includes(id))state.roots.push(id);
+    saveState();renderAll();toast(`${data.firstName} added as spouse.`);
   }
   closeModal();
 }
-
 document.getElementById('modal-close').addEventListener('click',closeModal);
 document.getElementById('modal-cancel').addEventListener('click',closeModal);
 document.getElementById('modal-save').addEventListener('click',handleModalSave);
 modalOverlay.addEventListener('click',e=>{if(e.target===modalOverlay)closeModal();});
 
 /* ═══════════════════════════════════════════════════════════════
-   DETAIL PANEL PHOTO UPLOAD (from panel)
+   DETAIL PANEL BUTTONS
 ═══════════════════════════════════════════════════════════════ */
 document.getElementById('dp-photo-input').addEventListener('change',async e=>{
   if(!state.selectedId)return;
   const file=e.target.files[0];if(!file)return;
-  if(!['image/jpeg','image/png'].includes(file.type)){
-    toast('Please choose a JPG, JPEG, or PNG file.');e.target.value='';return;
-  }
+  if(!['image/jpeg','image/png'].includes(file.type)){toast('Please choose JPG or PNG.');e.target.value='';return;}
   if(file.size>5*1024*1024){toast('Image must be under 5 MB.');e.target.value='';return;}
   const reader=new FileReader();
   reader.onload=async ev=>{
-    const cropped=await openCropModal(ev.target.result);
-    if(cropped){
-      state.people[state.selectedId].photo=cropped;
-      saveState();renderAll();openDetailPanel(state.selectedId);
-    }
+    const c=await openCropModal(ev.target.result);
+    if(c){state.people[state.selectedId].photo=c;saveState();renderAll();openDetailPanel(state.selectedId);}
     e.target.value='';
   };
   reader.readAsDataURL(file);
 });
-
-/* ═══════════════════════════════════════════════════════════════
-   DETAIL PANEL BUTTONS
-═══════════════════════════════════════════════════════════════ */
 document.getElementById('dp-close').addEventListener('click',closeDetailPanel);
 document.getElementById('dp-edit-btn').addEventListener('click',()=>{
   if(!state.selectedId)return;
   const p=state.people[state.selectedId];
   state.modalMode={type:'edit',targetId:state.selectedId};
   openModal(`Edit — ${p.firstName}${p.lastName?' '+p.lastName:''}`,{
-    firstname:p.firstName,lastname:p.lastName||'',
-    birth:p.birth,death:p.death,
-    birthplace:p.birthplace,deathplace:p.deathplace,
-    occupation:p.occupation,nationality:p.nationality,
-    bio:p.bio,notes:p.notes,photo:p.photo||null
+    firstname:p.firstName,lastname:p.lastName||'',birth:p.birth,death:p.death,
+    birthplace:p.birthplace,deathplace:p.deathplace,occupation:p.occupation,
+    nationality:p.nationality,bio:p.bio,notes:p.notes,photo:p.photo||null
   });
 });
 document.getElementById('dp-add-child-btn').addEventListener('click',()=>{
   if(!state.selectedId)return;
-  // If selected person is a spouse, add child to their primary instead
-  let targetId=state.selectedId;
-  if(state.spouseOfMap&&state.spouseOfMap.has(targetId)) targetId=state.spouseOfMap.get(targetId);
-  const p=state.people[targetId];
-  state.modalMode={type:'child',targetId};
-  openModal(`Add Child to ${p.firstName}`);
+  let tid=state.selectedId;
+  if(state.spouseOfMap.has(tid))tid=state.spouseOfMap.get(tid);
+  state.modalMode={type:'child',targetId:tid};
+  openModal(`Add Child to ${state.people[tid].firstName}`);
 });
 document.getElementById('dp-add-spouse-btn').addEventListener('click',()=>{
   if(!state.selectedId)return;
@@ -1205,12 +1059,45 @@ document.getElementById('dp-delete-btn').addEventListener('click',()=>{
   if(!state.selectedId)return;
   const p=state.people[state.selectedId];
   const nm=p.lastName?`${p.firstName} ${p.lastName}`:p.firstName;
-  showDeleteConfirm(nm, state.selectedId);
+  showDeleteConfirm(nm,state.selectedId);
 });
+/* ── Generic confirm dialog ─────────────────────────────────── */
+function showCustomConfirm(title, message, confirmLabel, onConfirm){
+  // Remove any existing confirm overlay first
+  const existing=document.getElementById('custom-confirm-overlay');
+  if(existing)existing.remove();
+
+  const ov=document.createElement('div');
+  ov.id='custom-confirm-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:600;background:rgba(30,18,10,.68);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:26px 24px 20px;
+      width:340px;max-width:calc(100vw - 32px);
+      box-shadow:0 20px 60px rgba(0,0,0,.4);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+      <div style="font-size:1.8rem;text-align:center;margin-bottom:8px">⚠️</div>
+      <h3 style="font-family:Georgia,serif;font-size:1rem;color:#3D2B1F;
+        text-align:center;margin-bottom:8px">${title}</h3>
+      <p style="font-size:.83rem;color:#8A7060;text-align:center;
+        line-height:1.5;margin-bottom:20px">${message}</p>
+      <div style="display:flex;gap:10px">
+        <button class="cc-no" style="flex:1;border:none;border-radius:10px;padding:12px;
+          font-size:.84rem;font-weight:600;background:#E5DDD0;color:#3D2B1F;
+          cursor:pointer;touch-action:manipulation">Cancel</button>
+        <button class="cc-yes" style="flex:1;border:none;border-radius:10px;padding:12px;
+          font-size:.84rem;font-weight:600;background:#C0392B;color:#fff;
+          cursor:pointer;touch-action:manipulation">${confirmLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const rm=()=>{if(ov.parentNode)ov.parentNode.removeChild(ov);};
+  ov.querySelector('.cc-no').addEventListener('click',rm);
+  ov.querySelector('.cc-yes').addEventListener('click',()=>{rm();onConfirm();});
+  ov.addEventListener('click',e=>{if(e.target===ov)rm();});
+}
 
 function deletePerson(id){
-  const firstName=(state.people[id]||{}).firstName||'Person';
-  // Remove from all references
+  const fn=(state.people[id]||{}).firstName||'Person';
   Object.values(state.people).forEach(p=>{
     p.children=(p.children||[]).filter(c=>c!==id);
     p.spouses=(p.spouses||[]).filter(s=>s!==id);
@@ -1218,136 +1105,239 @@ function deletePerson(id){
   state.roots=state.roots.filter(r=>r!==id);
   delete state.people[id];
   delete state.collapsed[id];
-  // Clear selection BEFORE save+render so nothing tries to look up the deleted id
   state.selectedId=null;
   panel.classList.remove('open');
   saveState();
   renderAll();
-  toast(`${firstName} removed from the tree.`);
+  toast(`${fn} removed.`);
 }
 
-function showDeleteConfirm(name, id){
-  // Custom confirm overlay — avoids browser confirm() being silently blocked
-  // and avoids any overflow/clipping issues with the detail panel
-  const overlay=document.createElement('div');
-  overlay.style.cssText=`
-    position:fixed;inset:0;z-index:500;
-    background:rgba(30,18,10,.65);backdrop-filter:blur(4px);
-    display:flex;align-items:center;justify-content:center;padding:20px;
-  `;
-  overlay.innerHTML=`
-    <div style="background:#fff;border-radius:16px;padding:28px 28px 22px;
-      width:360px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);
-      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-      <div style="font-size:2rem;text-align:center;margin-bottom:10px">🗑️</div>
-      <h3 style="font-family:Georgia,serif;font-size:1.05rem;color:#3D2B1F;
-        text-align:center;margin-bottom:8px;">Remove Person</h3>
-      <p style="font-size:.85rem;color:#8A7060;text-align:center;line-height:1.5;margin-bottom:22px;">
-        Remove <strong style="color:#3D2B1F">${name}</strong> from the tree?<br/>
-        This cannot be undone.
-      </p>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button id="del-cancel" style="flex:1;border:none;border-radius:10px;padding:11px;
-          font-size:.85rem;font-weight:600;cursor:pointer;
-          background:#E5DDD0;color:#3D2B1F;">Cancel</button>
-        <button id="del-confirm" style="flex:1;border:none;border-radius:10px;padding:11px;
-          font-size:.85rem;font-weight:600;cursor:pointer;
-          background:#C0392B;color:#fff;">Yes, Remove</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  const remove=()=>document.body.removeChild(overlay);
-  overlay.querySelector('#del-cancel').addEventListener('click',remove);
-  overlay.querySelector('#del-confirm').addEventListener('click',()=>{
-    remove();
-    deletePerson(id);
-  });
-  // Click outside to cancel
-  overlay.addEventListener('click',e=>{if(e.target===overlay)remove();});
+function showDeleteConfirm(name,id){
+  showCustomConfirm(
+    'Remove Person',
+    `Remove <strong style="color:#3D2B1F">${name}</strong> from the tree?<br>This cannot be undone.`,
+    'Yes, Remove',
+    ()=>deletePerson(id)
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   CANVAS EVENT DELEGATION
+   CANVAS TAP DETECTION
+   
+   CRITICAL MOBILE FIX:
+   canvas-wrap has touch-action:none so our JS handles ALL touches.
+   This means browser never fires 'click' on elements inside it.
+   We must fire synthetic clicks ourselves from touchend,
+   but ONLY if the touch didn't move (it was a tap, not a pan/pinch).
 ═══════════════════════════════════════════════════════════════ */
-canvas.addEventListener('click',e=>{
+canvas.addEventListener('click',handleCanvasClick);
+
+// Also handle synthetic taps from touch (see touchend handler below)
+function handleCanvasClick(e){
   const colBtn=e.target.closest('.btn-collapse');
   if(colBtn){
     e.stopPropagation();
-    const id=colBtn.dataset.id;
-    state.collapsed[id]=!state.collapsed[id];
-    saveState();renderAll();return;
+    let id=colBtn.dataset.id;
+    state.collapsed[id]=!state.collapsed[id];saveState();renderAll();return;
   }
   const addChild=e.target.closest('[data-action="add-child"]');
   if(addChild){
     e.stopPropagation();
     let id=addChild.dataset.id;
-    // If clicked on a spouse card, redirect add-child to the primary person
-    if(state.spouseOfMap&&state.spouseOfMap.has(id)) id=state.spouseOfMap.get(id);
+    if(state.spouseOfMap.has(id))id=state.spouseOfMap.get(id);
     const p=state.people[id];
-    state.modalMode={type:'child',targetId:id};
-    openModal(`Add Child to ${p.firstName}`);return;
+    state.modalMode={type:'child',targetId:id};openModal(`Add Child to ${p.firstName}`);return;
   }
   const addSpouse=e.target.closest('[data-action="add-spouse"]');
   if(addSpouse){
     e.stopPropagation();
-    const id=addSpouse.dataset.id;
-    const p=state.people[id];
-    state.modalMode={type:'spouse',targetId:id};
-    openModal(`Add Spouse to ${p.firstName}`);return;
+    const id=addSpouse.dataset.id;const p=state.people[id];
+    state.modalMode={type:'spouse',targetId:id};openModal(`Add Spouse to ${p.firstName}`);return;
   }
   const card=e.target.closest('.person-card');
-  if(card){const id=card.dataset.id;if(state.selectedId===id)closeDetailPanel();else openDetailPanel(id);return;}
-});
+  if(card){
+    const id=card.dataset.id;
+    if(state.selectedId===id)closeDetailPanel();else openDetailPanel(id);
+    return;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════
-   PAN & ZOOM
+   PAN & ZOOM — mouse + wheel + touch (pinch + single-finger pan)
 ═══════════════════════════════════════════════════════════════ */
 const wrap=document.getElementById('canvas-wrap');
-let isPanning=false,pStartX,pStartY,pOriginX,pOriginY;
+const zoomLabel=document.getElementById('zoom-label');
 
 function applyTransform(){
   canvas.style.transform=`translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+  zoomLabel.textContent=Math.round(state.zoom*100)+'%';
 }
 
+/* ── Mouse ──────────────────────────────────────────────────── */
+let isMousePanning=false,msx,msy,mox,moy;
 wrap.addEventListener('mousedown',e=>{
   if(e.target.closest('.person-card')||e.target.closest('button')||e.target.closest('input'))return;
-  isPanning=true;pStartX=e.clientX;pStartY=e.clientY;pOriginX=state.panX;pOriginY=state.panY;
+  isMousePanning=true;msx=e.clientX;msy=e.clientY;mox=state.panX;moy=state.panY;
   wrap.classList.add('dragging');
 });
 window.addEventListener('mousemove',e=>{
-  if(!isPanning)return;
-  state.panX=pOriginX+(e.clientX-pStartX);state.panY=pOriginY+(e.clientY-pStartY);applyTransform();
+  if(!isMousePanning)return;
+  state.panX=mox+(e.clientX-msx);state.panY=moy+(e.clientY-msy);applyTransform();
 });
-window.addEventListener('mouseup',()=>{isPanning=false;wrap.classList.remove('dragging');});
-
-let touchIds={};
-wrap.addEventListener('touchstart',e=>{
-  [...e.changedTouches].forEach(t=>{touchIds[t.identifier]={x:t.clientX,y:t.clientY}});
-  if(Object.keys(touchIds).length===1){
-    const t=e.changedTouches[0];pStartX=t.clientX;pStartY=t.clientY;pOriginX=state.panX;pOriginY=state.panY;
-  }
-});
-wrap.addEventListener('touchmove',e=>{
-  e.preventDefault();
-  if(Object.keys(touchIds).length===1){
-    const t=e.changedTouches[0];state.panX=pOriginX+(t.clientX-pStartX);state.panY=pOriginY+(t.clientY-pStartY);applyTransform();
-  }
-},{passive:false});
-wrap.addEventListener('touchend',e=>{[...e.changedTouches].forEach(t=>delete touchIds[t.identifier]);});
-
+window.addEventListener('mouseup',()=>{isMousePanning=false;wrap.classList.remove('dragging');});
 wrap.addEventListener('wheel',e=>{
   e.preventDefault();
   const d=e.deltaY>0?0.9:1.1;
   const rect=wrap.getBoundingClientRect();
   const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  state.zoom=Math.min(3,Math.max(0.12,state.zoom*d));
   state.panX=mx-(mx-state.panX)*d;state.panY=my-(my-state.panY)*d;
-  state.zoom=Math.min(3,Math.max(0.15,state.zoom*d));applyTransform();
+  applyTransform();
 },{passive:false});
 
-document.getElementById('btn-zoom-in').addEventListener('click',()=>{state.zoom=Math.min(3,state.zoom*1.2);applyTransform();});
-document.getElementById('btn-zoom-out').addEventListener('click',()=>{state.zoom=Math.max(0.15,state.zoom*.8);applyTransform();});
-document.getElementById('btn-zoom-fit').addEventListener('click',fitView);
+/* ── Touch ──────────────────────────────────────────────────── */
+/*
+  Strategy:
+  - Track all active touches in a Map.
+  - 1 finger  → pan (if moved > TAP_SLOP) or tap (if barely moved).
+  - 2 fingers → pinch-zoom + pan (centroid moves).
+  - On touchend with 0 movement → synthesise a click on the element.
+  
+  We DO call e.preventDefault() on touchmove (not touchstart) so that
+  browser scroll is suppressed but the initial touchstart still propagates
+  to allow focus events on inputs inside modals.
+*/
+const touches=new Map();    // id → {x0,y0,x,y}  (start + current)
+let pinchDist0=null;        // initial pinch distance
+let pinchZoom0=null;        // zoom at pinch start
+let pinchPan0=null;         // {x,y} pan at pinch start
+let panOrigin=null;         // {panX,panY,tx,ty} for single-finger pan
+const TAP_SLOP=8;           // px — max movement for a tap
+let pinchHintShown=false;
+
+function touchDist(){
+  const pts=[...touches.values()];
+  const dx=pts[1].x-pts[0].x,dy=pts[1].y-pts[0].y;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function touchMid(){
+  const pts=[...touches.values()];
+  return{x:(pts[0].x+pts[1].x)/2,y:(pts[0].y+pts[1].y)/2};
+}
+
+wrap.addEventListener('touchstart',e=>{
+  // NOTE: do NOT preventDefault here — allows inputs/buttons in modals to focus
+  [...e.changedTouches].forEach(t=>{
+    touches.set(t.identifier,{x0:t.clientX,y0:t.clientY,x:t.clientX,y:t.clientY});
+  });
+
+  if(touches.size===1){
+    const t=[...touches.values()][0];
+    panOrigin={panX:state.panX,panY:state.panY,tx:t.x,ty:t.y};
+    pinchDist0=null;
+  } else if(touches.size===2){
+    pinchDist0=touchDist();
+    pinchZoom0=state.zoom;
+    const mid=touchMid();
+    const rect=wrap.getBoundingClientRect();
+    pinchPan0={
+      panX:state.panX,panY:state.panY,
+      midX:mid.x-rect.left,midY:mid.y-rect.top
+    };
+    panOrigin=null;
+    if(!pinchHintShown){
+      pinchHintShown=true;
+      const h=document.getElementById('pinch-hint');
+      h.classList.add('show');setTimeout(()=>h.classList.remove('show'),2200);
+    }
+  }
+},{passive:true}); // passive:true so touchstart doesn't block scroll in modals
+
+wrap.addEventListener('touchmove',e=>{
+  e.preventDefault(); // now prevent default to stop page scroll/browser zoom
+  [...e.changedTouches].forEach(t=>{
+    if(touches.has(t.identifier)){
+      const rec=touches.get(t.identifier);
+      rec.x=t.clientX;rec.y=t.clientY;
+    }
+  });
+
+  if(touches.size===1&&panOrigin){
+    const t=[...touches.values()][0];
+    state.panX=panOrigin.panX+(t.x-panOrigin.tx);
+    state.panY=panOrigin.panY+(t.y-panOrigin.ty);
+    applyTransform();
+
+  } else if(touches.size===2&&pinchDist0!==null){
+    const newDist=touchDist();
+    const mid=touchMid();
+    const rect=wrap.getBoundingClientRect();
+    const midX=mid.x-rect.left,midY=mid.y-rect.top;
+
+    // Scale relative to initial zoom at pinch start (no drift accumulation)
+    const scaleFactor=newDist/pinchDist0;
+    const newZoom=Math.min(3,Math.max(0.12,pinchZoom0*scaleFactor));
+
+    // Anchor zoom at the pinch midpoint (from initial pinch position)
+    const ox=pinchPan0.midX,oy=pinchPan0.midY;
+    state.panX=ox-(ox-pinchPan0.panX)*(newZoom/pinchZoom0);
+    state.panY=oy-(oy-pinchPan0.panY)*(newZoom/pinchZoom0);
+    state.zoom=newZoom;
+
+    // Pan by centroid movement from initial mid
+    state.panX+=(midX-pinchPan0.midX);
+    state.panY+=(midY-pinchPan0.midY);
+
+    applyTransform();
+  }
+},{passive:false});
+
+wrap.addEventListener('touchend',e=>{
+  const endedTouches=[...e.changedTouches];
+
+  // Check if any ended touch was a TAP (barely moved)
+  if(touches.size===1&&pinchDist0===null){
+    endedTouches.forEach(t=>{
+      const rec=touches.get(t.identifier);
+      if(!rec)return;
+      const dx=Math.abs(rec.x-rec.x0),dy=Math.abs(rec.y-rec.y0);
+      if(dx<TAP_SLOP&&dy<TAP_SLOP){
+        // It's a tap — find element at touch point and dispatch synthetic click
+        const el=document.elementFromPoint(t.clientX,t.clientY);
+        if(el){
+          // Synthesise click so handleCanvasClick fires
+          const synth=new MouseEvent('click',{bubbles:true,cancelable:true,clientX:t.clientX,clientY:t.clientY});
+          el.dispatchEvent(synth);
+        }
+      }
+    });
+  }
+
+  endedTouches.forEach(t=>touches.delete(t.identifier));
+  if(touches.size<2){pinchDist0=null;pinchZoom0=null;pinchPan0=null;}
+  if(touches.size===1){
+    // One finger remains after pinch ends — reset pan origin so pan feels natural
+    const remaining=[...touches.values()][0];
+    panOrigin={panX:state.panX,panY:state.panY,tx:remaining.x,ty:remaining.y};
+  }
+  if(touches.size===0){panOrigin=null;wrap.classList.remove('dragging');}
+},{passive:true});
+
+wrap.addEventListener('touchcancel',e=>{
+  [...e.changedTouches].forEach(t=>touches.delete(t.identifier));
+  pinchDist0=null;pinchZoom0=null;pinchPan0=null;panOrigin=null;
+},{passive:true});
+
+/* ── Zoom buttons ───────────────────────────────────────────── */
+function zoomAround(factor){
+  const vw=wrap.clientWidth/2,vh=wrap.clientHeight/2;
+  const nz=Math.min(3,Math.max(0.12,state.zoom*factor));
+  const s=nz/state.zoom;
+  state.panX=vw-(vw-state.panX)*s;state.panY=vh-(vh-state.panY)*s;
+  state.zoom=nz;applyTransform();
+}
+document.getElementById('btn-zoom-in').addEventListener('click',()=>zoomAround(1.25));
+document.getElementById('btn-zoom-out').addEventListener('click',()=>zoomAround(0.8));
 document.getElementById('btn-center').addEventListener('click',fitView);
 
 function fitView(){
@@ -1356,11 +1346,18 @@ function fitView(){
   const maxX=Math.max(...pos.map(p=>p.x))+CARD_W,maxY=Math.max(...pos.map(p=>p.y))+CARD_H;
   const tw=maxX-minX,th=maxY-minY;
   const vw=wrap.clientWidth,vh=wrap.clientHeight;
-  state.zoom=Math.min(1.2,Math.min(vw/(tw+160),vh/(th+160)));
+  const pad=50;
+  state.zoom=Math.min(1.3,Math.min((vw-pad*2)/tw,(vh-pad*2)/th));
+  if(state.zoom<0.12)state.zoom=0.12;
   state.panX=(vw-tw*state.zoom)/2-minX*state.zoom;
-  state.panY=(vh-th*state.zoom)/2-minY*state.zoom+20;
+  state.panY=(vh-th*state.zoom)/2-minY*state.zoom;
   applyTransform();
 }
+
+/* ── Prevent native pinch-zoom on the entire page (iOS Safari) ── */
+document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gesturechange',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gestureend',e=>e.preventDefault(),{passive:false});
 
 /* ═══════════════════════════════════════════════════════════════
    TOP BAR BUTTONS
@@ -1368,43 +1365,59 @@ function fitView(){
 document.getElementById('btn-add-root').addEventListener('click',()=>{
   state.modalMode={type:'root'};openModal('Add Root Ancestor');
 });
-
-/* FIX: Export — build link, append to body, click, then immediately remove.
-   Do NOT use an <a> hidden inside the button (that would conflict with the import input). */
 document.getElementById('btn-export').addEventListener('click',()=>{
   const json=JSON.stringify({people:state.people,roots:state.roots,nextId:state.nextId},null,2);
   const blob=new Blob([json],{type:'application/json'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download='family-tree.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const a=document.createElement('a');a.href=url;a.download='family-tree.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  toast('Tree exported as family-tree.json');
+  toast('Exported as family-tree.json');
 });
-
 document.getElementById('btn-import').addEventListener('change',e=>{
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=ev=>{
     try{
       const data=JSON.parse(ev.target.result);
-      if(!data.people||!data.roots)throw new Error('Invalid structure');
-      state.people=data.people;state.roots=data.roots;state.nextId=data.nextId||200;
-      state.collapsed={};state.selectedId=null;
-      closeDetailPanel();saveState();renderAll();fitView();
+      if(!data.people||!data.roots)throw new Error('missing fields');
+      state.people=data.people;
+      state.roots=data.roots;
+      state.nextId=data.nextId||200;
+      state.collapsed=data.collapsed||{};
+      state.selectedId=null;
+      // Re-init Maps/Sets that aren't in JSON
+      state.primarySet=new Set();
+      state.spouseOfMap=new Map();
+      closeDetailPanel();
+      saveState();
+      renderAll();
+      // fitView needs real clientWidth — defer one frame so DOM has painted
+      requestAnimationFrame(()=>requestAnimationFrame(fitView));
       toast('Tree imported successfully!');
-    }catch{toast('Invalid family tree JSON file.');}
+    }catch(err){
+      console.error('Import error:',err);
+      toast('Invalid family tree JSON file.');
+    }
   };
-  reader.readAsText(file);e.target.value='';
+  reader.readAsText(file);
+  e.target.value='';
 });
-
 document.getElementById('btn-reset').addEventListener('click',()=>{
-  if(!confirm('Reset to the default sample family? All your changes will be lost.'))return;
-  resetToDefault();state.selectedId=null;
-  closeDetailPanel();saveState();renderAll();fitView();
-  toast('Tree reset to sample data.');
+  showCustomConfirm(
+    '↺ Reset Tree',
+    'Reset everything back to the sample family? All your current data will be lost.',
+    'Yes, Reset',
+    ()=>{
+      resetToDefault();
+      state.selectedId=null;
+      closeDetailPanel();
+      saveState();
+      renderAll();
+      requestAnimationFrame(()=>requestAnimationFrame(fitView));
+      toast('Tree reset to sample data.');
+    }
+  );
 });
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1413,9 +1426,7 @@ document.getElementById('btn-reset').addEventListener('click',()=>{
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(cropOverlay.classList.contains('open')){
-      cropOverlay.classList.remove('open');
-      if(cropState.resolveCallback){cropState.resolveCallback(null);cropState.resolveCallback=null;}
-      return;
+      cropOverlay.classList.remove('open');if(cropState.cb){cropState.cb(null);cropState.cb=null;}return;
     }
     closeModal();closeDetailPanel();
   }
@@ -1442,7 +1453,8 @@ loadState().then(() => {
     setTimeout(fitView, 100);
 });
 applyTransform();
-setTimeout(fitView,120);
+// Wait for two animation frames so the browser has painted and clientWidth is real
+requestAnimationFrame(()=>requestAnimationFrame(fitView));
 </script>
 </body>
 </html>
